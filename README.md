@@ -11,11 +11,11 @@
 
 Summit Watch 完整面板（Ctrl+0 打开）已完整汉化：
 
-![SummitWatch 完整面板汉化](https://raw.githubusercontent.com/linling000I/SummitWatchCN/main/screenshots/full-panel.png)
+![SummitWatch 完整面板汉化](https://raw.githubusercontent.com/linling000I/SummitWatchCN/main/full-panel.png)
 
 黑名单管理窗口（默认 F8 打开）：
 
-![黑名单管理窗口](https://raw.githubusercontent.com/linling000I/SummitWatchCN/main/screenshots/blacklist-window.png)
+![黑名单管理窗口](https://raw.githubusercontent.com/linling000I/SummitWatchCN/main/blacklist-window.png)
 
 ## 安装
 
