@@ -1,0 +1,10 @@
+{
+  "name": "SummitWatchCN",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/linling000I/SummitWatchCN",
+  "description": "SummitWatch 中文汉化与黑名单附属：面板/资料/提示全中文；按玩家名称与SteamID记录黑名单，进房自动踢出或断开/本地屏蔽。",
+  "dependencies": [
+    "BepInEx-BepInExPack_PEAK-5.4.75301",
+    "JavaMods-SummitWatch-0.1.3"
+  ]
+}
