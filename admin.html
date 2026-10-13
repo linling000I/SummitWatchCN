@@ -185,7 +185,7 @@ async function tryLoginSteam(){
   adminSecret = s.trim();
   try{
     const r = await fetch(API + "/verify", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({admin: steamId, secret: adminSecret})});
+      body: JSON.stringify({steamId, secret: adminSecret})});
     const d = await r.json();
     if(d.ok){ resetAttempts(); return true; }
   }catch(e){}
