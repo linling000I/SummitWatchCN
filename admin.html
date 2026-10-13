@@ -71,7 +71,7 @@
     <b>限时赦免观察区（公开只读）</b>
     <div class="mut">观察期内暂不自动踢出，再犯只计数。</div>
     <table>
-      <thead><tr><th>SteamID</th><th>到期日</th><th>已再犯次数</th><th class="opcol">操作</th></tr></thead>
+      <thead><tr><th>SteamID</th><th>名称</th><th>到期日</th><th>已再犯次数</th><th class="opcol">操作</th></tr></thead>
       <tbody id="pardonsBody"></tbody>
     </table>
   </div>
@@ -141,11 +141,16 @@ const WORKER = API + "/queue";
 
 let data = {admins:[], entries:[], pardons:[]};
 let kvQueue = [];
-// SteamID 只从 sessionStorage 读，且必须先经 Worker /steam/verify 验证过，防止 URL 手动改
+// SteamID 只从 sessionStorage 读，且必须先经 Steam 登录回跳才会写入
 let steamId = sessionStorage.getItem("swcn_sid_v2") || "";
+let myName = localStorage.getItem("swcn_myname") || "";
 let adminSecret = "";
 let githubToken = "";
 let githubUser = "";
+
+function displayWho(){
+  return steamId ? steamId + (myName ? "（" + myName + "）" : "") : "";
+}
 
 // 每日试错计数（localStorage 持久化）
 function todayKey(){ return "swcn_attempts_" + new Date().toISOString().slice(0,10); }
@@ -243,7 +248,7 @@ function openSubmit(){
   postForm({
     subject: "[SummitWatchCN 举报] " + (name||id), from_name: "玩家举报",
     "被举报人SteamID64": id, "被举报人名称": name||"(未填)",
-    "投稿人SteamID64": steamId, "理由": reason
+    "投稿人SteamID64": steamId, "投稿人名称": myName||"(未填)", "理由": reason
   }, "submit");
 }
 function openAppeal(){
@@ -252,7 +257,7 @@ function openAppeal(){
   if(!reason){ alert("申诉理由必填"); return; }
   postForm({
     subject: "[SummitWatchCN 申诉] " + steamId, from_name: "玩家申诉",
-    "申诉人SteamID64": steamId, "申诉理由": reason
+    "申诉人SteamID64": steamId, "申诉人名称": myName||"(未填)", "申诉理由": reason
   }, "appeal");
 }
 
@@ -281,7 +286,7 @@ function renderQueue(){
   subs.forEach(({it,i})=>{
     const d = document.createElement("div");
     d.className="item";
-    d.innerHTML = `<div class="row"><b>举报人: <code>${esc(it["投稿人SteamID64"]||"")}</code></b><span class="mut right">${esc(it.at||"")}</span></div>
+    d.innerHTML = `<div class="row"><b>举报人: <code>${esc(it["投稿人SteamID64"]||"")}</code>${it["投稿人名称"]?("（"+esc(it["投稿人名称"])+"）"):""}</b><span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">被举报人: <code>${esc(it["被举报人SteamID64"]||"")}</code> ${esc(it["被举报人名称"]||"")}
 理由: ${esc(it["理由"]||"")}</div>
       ${(it.followups||[]).map(f=>`<div class="reason mut">补充 ${esc(f.at)}: ${esc(f.note)}</div>`).join("")}
@@ -297,7 +302,7 @@ function renderQueue(){
   apps.forEach(({it,i})=>{
     const d = document.createElement("div");
     d.className="item";
-    d.innerHTML = `<div class="row"><b>申诉人: <code>${esc(it["申诉人SteamID64"]||"")}</code></b><span class="mut right">${esc(it.at||"")}</span></div>
+    d.innerHTML = `<div class="row"><b>申诉人: <code>${esc(it["申诉人SteamID64"]||"")}</code>${it["申诉人名称"]?("（"+esc(it["申诉人名称"])+"）"):""}</b><span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">理由: ${esc(it["申诉理由"]||"")}</div>
       ${(it.followups||[]).map(f=>`<div class="reason mut">补充 ${esc(f.at)}: ${esc(f.note)}</div>`).join("")}
       <div class="row" style="margin-top:6px">
@@ -362,7 +367,14 @@ async function submitFollowup(idx, kind){
   }catch(e){ alert("服务器连接失败，请稍后再试"); }
 }
 
+function operatorLabel(){
+  if(githubUser) return "GitHub:" + githubUser;
+  return steamId + (myName ? "（" + myName + "）" : "");
+}
+
 function updateQueueItem(idx, patch){
+  patch.operator = operatorLabel();
+  patch.opAt = new Date().toISOString();
   kvQueue[idx] = Object.assign({}, kvQueue[idx], patch);
   kvSet(kvQueue).then(()=>{ renderQueue(); renderHistory(); renderMyItems(); });
 }
@@ -396,17 +408,27 @@ function watchAppeal(i){
   const it = kvQueue[i];
   const until = new Date(Date.now()+parseInt(days)*86400000).toISOString().slice(0,10);
   const sid = it["申诉人SteamID64"];
-  if(!data.pardons.some(p=>p.id===sid)) data.pardons.push({id:sid, until, strikes:0});
-  else data.pardons.find(p=>p.id===sid).until = until;
+  const existing = data.entries.find(x=>x.id===sid);
+  const nm = (existing && existing.name) || it["申诉人名称"] || "";
+  if(!data.pardons.some(p=>p.id===sid)) data.pardons.push({id:sid, name:nm, until, strikes:0});
+  else { const p = data.pardons.find(p=>p.id===sid); p.until = until; if(nm) p.name = nm; }
   saveData().then(()=>updateQueueItem(i, {status:"watching", adminReply:"已转入观察期至 "+until}));
 }
 
 function renderWho(){
+  if(steamId && !myName){
+    const n = prompt("第一次使用，请填写你的游戏昵称（仅用于举报/申诉时显示，可随时修改）：");
+    if(n && n.trim()){ myName = n.trim(); localStorage.setItem("swcn_myname", myName); }
+  }
   const html = steamId
-    ? '✅ 已识别你的 SteamID: <code>' + esc(steamId) + '</code>'
+    ? '✅ 已识别你的身份: <code>' + esc(displayWho()) + '</code>　<button onclick="editName()">修改昵称</button>'
     : '⚠️ 未识别身份，请点右上角「用 Steam 识别身份」后再提交。';
   document.getElementById("whoBox").innerHTML = html;
   document.getElementById("whoBox2").innerHTML = html;
+}
+function editName(){
+  const n = prompt("你的游戏昵称：", myName);
+  if(n!==null){ myName = n.trim(); localStorage.setItem("swcn_myname", myName); renderWho(); }
 }
 
 async function load(){
@@ -442,7 +464,7 @@ function renderHistory(){
     d.className = "item";
     d.innerHTML = `<div class="row"><b>${esc(title)}</b> ${statusTag(st)}<span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">${esc(reasonText||"")}</div>
-      ${it.adminReply ? `<div class="reason mut">管理员回复: ${esc(it.adminReply)}</div>` : ""}
+      ${it.adminReply ? `<div class="reason mut">管理员回复: ${esc(it.adminReply)}${it.operator?("（操作人: "+esc(it.operator)+"）"):""}${it.opAt?(" · "+esc(it.opAt)):""}</div>` : ""}
       <div class="row" style="margin-top:6px">
         <button class="danger" onclick="deleteHistory(${i})">删除该记录</button>
       </div>`;
@@ -500,8 +522,11 @@ function render(){
   const pb = document.getElementById("pardonsBody");
   pb.innerHTML = "";
   data.pardons.forEach((p,i)=>{
+    const e = (data.entries||[]).find(x=>x.id===p.id);
+    const nm = p.name || (e && e.name) || "";
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><code>${esc(p.id)}</code></td>
+      <td>${esc(nm)}</td>
       <td>${esc(p.until||"")}</td>
       <td>${p.strikes||0}</td>
       <td class="opcol" style="display:none"><input type="date" value="${esc(p.until||"")}" id="pd${i}">
@@ -571,8 +596,8 @@ function pardon(i){
   if(days===null) return;
   const until = new Date(Date.now() + parseInt(days)*86400000).toISOString().slice(0,10);
   const e = data.entries[i];
-  if(!data.pardons.some(p=>p.id===e.id)) data.pardons.push({id:e.id, until, strikes:0});
-  else data.pardons.find(p=>p.id===e.id).until = until;
+  if(!data.pardons.some(p=>p.id===e.id)) data.pardons.push({id:e.id, name:e.name||"", until, strikes:0});
+  else { const p = data.pardons.find(p=>p.id===e.id); p.until = until; if(e.name) p.name = e.name; }
   saveData();
 }
 function updatePardon(i){ data.pardons[i].until = document.getElementById("pd"+i).value; saveData(); }
