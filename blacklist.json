@@ -1,9 +1,6 @@
 {
   "version": 1,
-  "_comment": "network blacklist. admins: admin SteamID64 list; entries keyed by SteamID; pardons until yyyy-MM-dd auto-expire.",
-  "admins": [
-    "76561199334743099"
-  ],
+  "admins": ["76561199334743099"],
   "entries": [],
   "pardons": []
 }
