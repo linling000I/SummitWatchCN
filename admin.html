@@ -42,7 +42,6 @@
 <header>
   <h1>⛰️ SummitWatchCN 网络黑名单</h1>
   <span id="status">加载中…</span>
-  <span class="mut" id="visitStat" style="margin-left:12px"></span>
   <span class="right row">
     <button id="btnGh" class="gh">主管理员 GitHub 登录</button>
     <button id="btnSteam">用 Steam 识别身份</button>
@@ -131,17 +130,6 @@
       <input id="newAdmin" placeholder="新管理员 SteamID64" style="width:200px">
       <button class="primary" onclick="addAdmin()">+ 添加管理员</button>
     </div>
-  </div>
-
-  <!-- 反馈模块：所有登录用户可提交，只主管理员可见 -->
-  <div class="card">
-    <div class="row"><b>💬 反馈/建议</b></div>
-    <div class="mut">提交反馈将记录你的 SteamID（名称），仅主管理员可见。</div>
-    <div class="row" style="margin-top:8px">
-      <textarea id="fbText" placeholder="反馈内容（bug、建议、误封申诉等）" style="flex:1;min-height:60px"></textarea>
-      <button class="primary" onclick="submitFeedback()">提交反馈</button>
-    </div>
-    <div id="fbList" style="margin-top:10px"></div>
   </div>
 
 </main>
@@ -289,7 +277,7 @@ function statusTag(st){
 }
 
 function renderQueue(){
-  const subs = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="submit" && (x.it.status||"pending")==="pending");
+  const subs = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="submit" && (x.it.status||"pending")==="pending" && x.it["被举报人SteamID64"]);
   const sb = document.getElementById("submissions");
   sb.innerHTML = subs.length ? "" : "（无待处理）";
   subs.forEach(({it,i})=>{
@@ -385,8 +373,8 @@ function updateQueueItem(idx, patch){
   patch.operator = operatorLabel();
   patch.opAt = new Date().toISOString();
   kvQueue[idx] = Object.assign({}, kvQueue[idx], patch);
-  kvSet(kvQueue).then(()=>{ renderQueue(); renderHistory(); renderMyItems(); })
-    .catch(e=>{ alert("保存失败: " + e.message + "（请确认主管理员已登录）"); });
+  renderQueue(); renderHistory(); renderMyItems();
+  kvSet(kvQueue).catch(e=>{ console.error("queue save failed", e); });
 }
 
 function approveQueue(i){
@@ -460,8 +448,6 @@ async function load(){
     document.getElementById("status").textContent = "加载失败: " + e.message;
   }
   loadQueue();
-  trackVisit();
-  if(githubToken) loadFeedback();
 }
 
 async function trackVisit(){
