@@ -170,10 +170,22 @@ function setStatus(){
   el.textContent = s;
 }
 
-// ===== 公开提交：跳转 GitHub 新建 Issue =====
-function issueUrl(label, title, body){
-  const params = new URLSearchParams({title, labels: label, body});
-  return "https://github.com/" + REPO + "/issues/new?" + params.toString();
+// ===== 公开提交：当前网页内直接 POST 到 Web3Forms（无需 GitHub 登录/跳转）=====
+// 到 https://web3forms.com 输入你的邮箱免费获取 access_key，填到下面引号里
+const WEB3FORMS_KEY = "9d692dbe-d2ee-423a-ae0b-c5f391895955";
+async function postForm(payload, btn){
+  if(!WEB3FORMS_KEY){ alert("网页表单尚未配置 access_key，请联系管理员配置。"); return; }
+  btn.disabled = true;
+  try{
+    const r = await fetch("https://api.web3forms.com/submit", {
+      method:"POST", headers:{"Content-Type":"application/json", Accept:"application/json"},
+      body: JSON.stringify(Object.assign({access_key: WEB3FORMS_KEY}, payload))
+    });
+    const j = await r.json();
+    if(j.success){ alert("提交成功！管理员会尽快处理。"); }
+    else { alert("提交失败：服务器连接失败，请稍后再试。(" + (j.message||r.status) + ")"); }
+  }catch(e){ alert("提交失败：服务器连接失败，请稍后再试。(" + e.message + ")"); }
+  finally { btn.disabled = false; }
 }
 function openSubmit(){
   if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
@@ -181,18 +193,27 @@ function openSubmit(){
   const name = document.getElementById("sName").value.trim();
   const reason = document.getElementById("sReason").value.trim();
   if(!id || !reason){ alert("被举报人 SteamID64 和举报理由必填"); return; }
-  window.open(issueUrl("投稿", "举报: " + (name||id),
-    "## 被举报信息\n\n- SteamID64: " + id + "\n- 游戏名称: " + (name||"(未填)") +
-    "\n- 投稿人 SteamID64: " + steamId + "\n\n## 理由\n" + reason));
+  postForm({
+    subject: "[SummitWatchCN 举报] " + (name||id),
+    from_name: "玩家举报",
+    "被举报人SteamID64": id,
+    "被举报人名称": name||"(未填)",
+    "投稿人SteamID64": steamId,
+    "理由": reason
+  }, document.querySelector("#submitCard button.primary"));
 }
 function openAppeal(){
   if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
   const name = document.getElementById("aName").value.trim();
   const reason = document.getElementById("aReason").value.trim();
   if(!reason){ alert("申诉理由必填"); return; }
-  window.open(issueUrl("申诉", "申诉: " + steamId,
-    "## 申诉人\n\n- SteamID64: " + steamId + "\n- 游戏名称: " + (name||"(未填)") +
-    "\n\n## 申诉理由\n" + reason));
+  postForm({
+    subject: "[SummitWatchCN 申诉] " + steamId,
+    from_name: "玩家申诉",
+    "申诉人SteamID64": steamId,
+    "申诉人名称": name||"(未填)",
+    "申诉理由": reason
+  }, document.querySelector("#main button.primary"));
 }
 
 function renderWho(){
@@ -323,6 +344,8 @@ function mergeEntry(id, name, reason, source){
     e = {id, name: name||"", reasons:[], added: new Date().toISOString().slice(0,10), history:[]};
     data.entries.push(e);
   }
+  if(!e.reasons) e.reasons = [];
+  if(!e.history) e.history = [];
   if(name && !e.name) e.name = name;
   if(reason) e.reasons.push(reason + (source?("（来自 "+source+")"):""));
   e.reason = e.reasons.join("；");  // 兼容客户端
@@ -428,7 +451,7 @@ async function saveData(){
 
 document.getElementById("btnSteam").onclick = ()=>{
   const realm = location.origin + location.pathname;
-  const ret = realm + "#steamid=";
+  const ret = realm + "?login=steam";
   window.location = "https://steamcommunity.com/openid/login?" + new URLSearchParams({
     "openid.ns":"http://specs.openid.net/auth/2.0",
     "openid.mode":"checkid_setup",
@@ -439,8 +462,18 @@ document.getElementById("btnSteam").onclick = ()=>{
   });
 };
 (function(){
-  const m = location.href.match(/https?:\/\/steamcommunity\.com\/openid\/id\/(\d+)/);
-  if(m){ history.replaceState(null,"",location.pathname + "#steamid=" + m[1]); steamId = m[1]; }
+  // Steam 回跳后 openid.claimed_id 在 query 里（已 URL 编码）
+  const params = new URLSearchParams(location.search);
+  const claimed = params.get("openid.claimed_id") || "";
+  const m = claimed.match(/\/id\/(\d+)/);
+  if(m){
+    steamId = m[1];
+    history.replaceState(null,"",location.pathname + "#steamid=" + steamId);
+  } else {
+    const h = new URLSearchParams(location.hash.slice(1)).get("steamid");
+    if(h && /^\d{17}$/.test(h)) steamId = h;
+  }
+  renderWho();
 })();
 
 load();
