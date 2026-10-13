@@ -200,7 +200,8 @@ async function postForm(payload, kind){
       const q = await kvGet();
       q.push(Object.assign({kind, at: new Date().toISOString()}, payload));
       await kvSet(q);
-    }catch(e){}
+      await loadQueue();
+    }catch(e){ alert("警告：写入队列失败：" + e.message); }
   }
   alert("提交成功！管理员会尽快处理。");
 }
