@@ -137,9 +137,42 @@ const WORKER = API + "/queue";
 let data = {admins:[], entries:[], pardons:[]};
 let kvQueue = [];
 let steamId = new URLSearchParams(location.hash.slice(1)).get("steamid") || "";
-let adminSecret = sessionStorage.getItem("swcn_secret") || "";
-let githubToken = sessionStorage.getItem("swcn_gh") || "";
+// 刷新页面自动清空已登录密钥：不读 sessionStorage，每次访问都重新验证
+let adminSecret = "";
+let githubToken = "";
 let githubUser = "";
+
+// 每日试错计数（localStorage 持久化）
+function todayKey(){ return "swcn_attempts_" + new Date().toISOString().slice(0,10); }
+function getAttempts(){
+  try { return parseInt(localStorage.getItem(todayKey()) || "0"); } catch(e){ return 0; }
+}
+function bumpAttempts(){
+  const k = todayKey();
+  localStorage.setItem(k, String(getAttempts()+1));
+}
+function resetAttempts(){ localStorage.removeItem(todayKey()); }
+
+async function tryLoginSteam(){
+  const left = 3 - getAttempts();
+  if(left <= 0){
+    alert("今日试错次数已用完（3次/天），明天再试");
+    return false;
+  }
+  const s = prompt("你是 Steam 管理员，请输入管理密钥（今日还可试错 " + left + " 次）：");
+  if(s===null) return false;
+  adminSecret = s.trim();
+  try{
+    const r = await fetch(API + "/verify", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({admin: steamId, secret: adminSecret})});
+    const d = await r.json();
+    if(d.ok){ resetAttempts(); return true; }
+  }catch(e){}
+  bumpAttempts();
+  adminSecret = "";
+  alert("密钥错误，未授予管理员权限（今日剩余 " + (3-getAttempts()) + " 次机会）");
+  return false;
+}
 
 function isAuthed(){
   if(githubToken) return true;
@@ -174,7 +207,11 @@ async function kvSet(arr){
   else { body.admin = steamId; body.secret = adminSecret; }
   const r = await fetch(WORKER, {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
   if(!r.ok){
-    if(r.status===403) alert("服务器连接失败，请稍后再试");
+    if(r.status===403){
+      adminSecret = "";
+      alert("密钥已失效，请重新登录");
+      throw new Error(403);
+    }
     throw new Error(r.status);
   }
 }
@@ -357,10 +394,9 @@ async function load(){
     if(!data.entries) data.entries=[];
     if(!data.pardons) data.pardons=[];
     if(!data.admins) data.admins=[];
-    // Steam admin: ask secret if not set
-    if(!githubToken && steamId && data.admins.includes(steamId) && !adminSecret){
-      const s = prompt("你是 Steam 管理员，请输入管理密钥：");
-      if(s){ adminSecret = s.trim(); sessionStorage.setItem("swcn_secret", adminSecret); }
+    // Steam admin: 刷新页面自动重新要求密钥
+    if(!githubToken && steamId && data.admins.includes(steamId)){
+      await tryLoginSteam();
     }
     setStatus();
     applyAdminVisibility();
@@ -503,7 +539,12 @@ async function saveData(){
       method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
     });
     if(!r.ok){
-      if(r.status===403){ alert("服务器连接失败，请稍后再试"); return; }
+      if(r.status===403){
+        adminSecret = "";
+        alert("密钥已失效，请重新登录");
+        if(steamId && data.admins.includes(steamId)) tryLoginSteam();
+        return;
+      }
       throw new Error(r.status);
     }
     render();
@@ -535,7 +576,6 @@ document.getElementById("btnGh").onclick = async ()=>{
     if(u.login !== "linling000I"){ alert("仅主管理员 linling000I 可用此登录"); return; }
     githubToken = t.trim();
     githubUser = u.login;
-    sessionStorage.setItem("swcn_gh", githubToken);
     setStatus(); applyAdminVisibility(); render(); loadQueue();
   }catch(e){ alert("登录失败: " + e.message); }
 };
