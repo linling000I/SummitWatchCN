@@ -1,15 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "admins": [
     "76561199334743099"
   ],
-  "entries": [
-    {
-      "id": "76561199528464913",
-      "name": "咸鱼",
-      "reason": "测试",
-      "added": "2026-10-13"
-    }
-  ],
+  "entries": [],
   "pardons": []
 }
