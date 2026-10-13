@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "_comment": "network blacklist. admins are admin SteamID64 list; entries keyed by SteamID; pardons until yyyy-MM-dd auto-expire.",
+  "admins": [
+    "PUT_YOUR_STEAMID64_HERE"
+  ],
+  "entries": [
+    {
+      "id": "76561198000000000",
+      "name": "example",
+      "reason": "remove me",
+      "added": "2026-10-13"
+    }
+  ],
+  "pardons": []
+}
