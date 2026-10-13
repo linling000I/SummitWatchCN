@@ -19,20 +19,23 @@
   button{cursor:pointer;background:#21262d}
   button:hover{border-color:var(--acc)}
   button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  button.gh{background:#24292f;border-color:#24292f;color:#fff}
   button.danger{color:var(--bad);border-color:#5f2326}
   table{width:100%;border-collapse:collapse}
   th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
   th{color:var(--mut);font-weight:normal;font-size:12px}
-  .tag{padding:2px 8px;border-radius:10px;font-size:12px}
+  .tag{padding:2px 8px;border-radius:10px;font-size:12px;display:inline-block}
   .tag.bad{background:#3d1f23;color:var(--bad)}
   .tag.warn{background:#3a2f16;color:var(--warn)}
   .tag.ok{background:#123318;color:var(--ok)}
+  .tag.mut{background:#222c36;color:var(--mut)}
   .mut{color:var(--mut);font-size:12px}
   .right{margin-left:auto}
   code{background:#0d1117;padding:1px 5px;border-radius:4px}
   details{margin-top:6px}
   summary{cursor:pointer;color:var(--mut);font-size:12px}
   .reason{margin:2px 0;padding-left:10px;border-left:2px solid var(--line)}
+  .item{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -40,14 +43,46 @@
   <h1>⛰️ SummitWatchCN 网络黑名单</h1>
   <span id="status">加载中…</span>
   <span class="right row">
+    <button id="btnGh" class="gh">主管理员 GitHub 登录</button>
     <button id="btnSteam">用 Steam 识别身份</button>
     <button onclick="load()">刷新</button>
   </span>
 </header>
 <main>
 
-  <!-- 公开区：任何人可投稿/申诉（跳转 GitHub 新建 Issue，免费账号即可） -->
-  <div class="card" id="submitCard">
+  <!-- 公开名单置顶 -->
+  <div class="card">
+    <div class="row">
+      <b>封禁名单（公开只读）</b>
+      <span class="right row" id="addRow" style="display:none">
+        <input id="nId" placeholder="SteamID64" style="width:170px">
+        <input id="nName" placeholder="名称" style="width:110px">
+        <input id="nReason" placeholder="原因" style="width:160px">
+        <button class="primary" onclick="addEntry()">+ 添加封禁</button>
+      </span>
+    </div>
+    <table>
+      <thead><tr><th>SteamID</th><th>名称</th><th>理由（叠加）</th><th>加入日期</th><th>状态</th><th class="opcol">操作</th></tr></thead>
+      <tbody id="entriesBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <b>限时赦免观察区（公开只读）</b>
+    <div class="mut">观察期内暂不自动踢出，再犯只计数。</div>
+    <table>
+      <thead><tr><th>SteamID</th><th>到期日</th><th>已再犯次数</th><th class="opcol">操作</th></tr></thead>
+      <tbody id="pardonsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>📋 我的投稿/申诉状态</h2>
+    <div class="mut">仅显示你本人 SteamID 提交的内容。被拒绝后可补充材料重新提交。</div>
+    <div id="myItems" class="mut" style="margin-top:8px">登录 Steam 后显示</div>
+  </div>
+
+  <div class="card">
     <h2>📨 我要举报（投稿）</h2>
     <div class="mut">先点右上角「用 Steam 识别身份」自动登记你的 SteamID；再填写被举报人和理由。相同 SteamID 多次举报会自动叠加。</div>
     <div id="whoBox" class="mut" style="margin-top:6px"></div>
@@ -65,9 +100,6 @@
     <h2>⚖️ 误封申诉</h2>
     <div class="mut">点右上角「用 Steam 识别身份」自动读取你的 SteamID，填写申诉理由即可。</div>
     <div id="whoBox2" class="mut" style="margin-top:6px"></div>
-    <div style="margin-top:8px">
-      <input id="aName" placeholder="你的游戏名称（可选）" style="width:140px">
-    </div>
     <textarea id="aReason" placeholder="申诉理由（说明为什么不是作弊）" style="width:100%;margin-top:8px;height:60px"></textarea>
     <div class="row" style="margin-top:8px">
       <button class="primary" onclick="openAppeal()">提交申诉</button>
@@ -75,115 +107,76 @@
   </div>
 
   <!-- 管理员区 -->
-  <div class="card" id="loginCard">
-    <b>主管理员认证（GitHub Token）</b>
-    <div class="mut">粘贴有本仓库 Contents/Issues 读写权限的 fine-grained PAT，仅存你浏览器 localStorage。</div>
-    <div class="row" style="margin-top:8px">
-      <input id="token" type="password" placeholder="github_pat_xxxxx" style="flex:1">
-      <button class="primary" onclick="loginGitHub()">登录并验证</button>
-    </div>
+  <div class="card" id="submissionsCard" style="display:none">
+    <div class="row"><b>📥 待处理投稿</b><span class="mut right" id="queueCount"></span></div>
+    <div id="submissions" class="mut">加载中…</div>
   </div>
 
-  <div class="card">
-    <div class="row">
-      <b>📥 待处理投稿（GitHub Issues · label: 投稿）</b>
-    </div>
-    <div id="submissions" class="mut">登录后自动加载</div>
+  <div class="card" id="appealsCard" style="display:none">
+    <div class="row"><b>📤 待处理申诉</b></div>
+    <div id="appeals" class="mut">加载中…</div>
   </div>
 
-  <div class="card">
-    <div class="row">
-      <b>📤 待处理申诉（GitHub Issues · label: 申诉）</b>
-    </div>
-    <div id="appeals" class="mut">登录后自动加载</div>
-  </div>
-
-  <div class="card">
-    <div class="row">
-      <b>封禁条目（按 SteamID 合并，理由可叠加）</b>
-      <span class="right row">
-        <input id="nId" placeholder="SteamID64" style="width:170px">
-        <input id="nName" placeholder="名称" style="width:110px">
-        <input id="nReason" placeholder="原因" style="width:160px">
-        <button class="primary" onclick="addEntry()">+ 添加封禁</button>
-      </span>
-    </div>
-    <table>
-      <thead><tr><th>SteamID</th><th>名称</th><th>理由（叠加）</th><th>加入日期</th><th>状态</th><th>操作</th></tr></thead>
-      <tbody id="entriesBody"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <b>限时赦免观察区</b>
-    <div class="mut">观察期内暂不自动踢出，再犯只计数。</div>
-    <table>
-      <thead><tr><th>SteamID</th><th>到期日</th><th>已再犯次数</th><th>操作</th></tr></thead>
-      <tbody id="pardonsBody"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
+  <div class="card" id="adminsCard" style="display:none">
     <b>管理员（admins，SteamID64）</b>
+    <div class="mut" id="adminsHint">仅主管理员（GitHub 登录）可增删管理员</div>
     <div class="row" id="adminsBody" style="margin-top:8px"></div>
+    <div class="row" id="addAdminRow" style="margin-top:8px;display:none">
+      <input id="newAdmin" placeholder="新管理员 SteamID64" style="width:200px">
+      <button class="primary" onclick="addAdmin()">+ 添加管理员</button>
+    </div>
   </div>
 
 </main>
 
 <script>
-const REPO = "linling000I/SummitWatchCN";
-const PATH = "blacklist.json";
-const RAW = "https://raw.githubusercontent.com/" + REPO + "/main/" + PATH;
-let data = {version:2, admins:["76561199334743099"], entries:[], pardons:[]};
-let sha = null;
-let ghUser = null;
+const API = "https://api.summitwatchcn.icu";
+const WEB3FORMS_KEY = "9d692dbe-d2ee-423a-ae0b-c5f391895955";
+const WORKER = API + "/queue";
+
+let data = {admins:[], entries:[], pardons:[]};
+let kvQueue = [];
 let steamId = new URLSearchParams(location.hash.slice(1)).get("steamid") || "";
+let adminSecret = sessionStorage.getItem("swcn_secret") || "";
+let githubToken = sessionStorage.getItem("swcn_gh") || "";
+let githubUser = "";
 
-function saveToken(t){ localStorage.setItem("swcn_pat", t); }
-function getToken(){ return localStorage.getItem("swcn_pat") || ""; }
-
-async function api(url, opts={}){
-  const t = getToken();
-  opts.headers = Object.assign({Authorization: t ? ("token " + t) : "", "Accept":"application/vnd.github+json"}, opts.headers||{});
-  const r = await fetch(url, opts);
-  if(!r.ok) throw new Error(url + " -> " + r.status + " " + await r.text());
-  return r;
-}
-
-async function loginGitHub(){
-  const t = document.getElementById("token").value.trim();
-  if(!t){ alert("请先粘贴 Token"); return; }
-  saveToken(t);
-  try{
-    const r = await (await fetch("https://api.github.com/user", {headers:{Authorization:"token "+t}})).json();
-    ghUser = r.login;
-    setStatus();
-    await loadIssues();
-    await saveData();
-  }catch(e){ alert("登录失败: " + e.message); }
+function isAuthed(){
+  if(githubToken) return true;
+  return steamId && data.admins.includes(steamId) && adminSecret;
 }
 
 function setStatus(){
   const el = document.getElementById("status");
-  let s = ghUser ? ("已认证 GitHub: @" + ghUser) : "未认证（公开举报/申诉可用）";
-  if(steamId) s += " · SteamID: " + steamId;
-  el.textContent = s;
+  if(githubToken) el.textContent = "GitHub 主管理员: @" + githubUser;
+  else if(steamId && data.admins.includes(steamId)) el.textContent = "SteamID: " + steamId + (adminSecret ? " · 管理员 ✓" : "");
+  else if(steamId) el.textContent = "SteamID: " + steamId;
+  else el.textContent = "未识别身份";
 }
 
-// ===== 公开提交：Web3Forms 发邮件 + kvdb.io 存队列（网页内可见可处理）=====
-const WEB3FORMS_KEY = "9d692dbe-d2ee-423a-ae0b-c5f391895955";
-const WORKER = "https://summitwatchcn.a17713948049.workers.dev/queue";
-let kvQueue = [];
+function applyAdminVisibility(){
+  const ok = isAuthed();
+  document.getElementById("submissionsCard").style.display = ok ? "block" : "none";
+  document.getElementById("appealsCard").style.display = ok ? "block" : "none";
+  document.getElementById("adminsCard").style.display = ok ? "block" : "none";
+  document.getElementById("addRow").style.display = ok ? "flex" : "none";
+  document.querySelectorAll("th.opcol, td.opcol").forEach(td=>td.style.display = ok ? "" : "none");
+}
 
 async function kvGet(){
-  try{
-    const r = await fetch(WORKER);
-    if(!r.ok) throw new Error(r.status);
-    return await r.json();
-  }catch(e){ throw e; }
+  const r = await fetch(WORKER);
+  if(!r.ok) throw new Error(r.status);
+  return await r.json();
 }
 async function kvSet(arr){
-  await fetch(WORKER, {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(arr)});
+  const body = {queue: arr};
+  if(githubToken) body.githubToken = githubToken;
+  else { body.admin = steamId; body.secret = adminSecret; }
+  const r = await fetch(WORKER, {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+  if(!r.ok){
+    if(r.status===403) alert("服务器连接失败，请稍后再试");
+    throw new Error(r.status);
+  }
 }
 async function postForm(payload, kind){
   try{
@@ -193,11 +186,9 @@ async function postForm(payload, kind){
     });
   }catch(e){}
   try{
-    const q = await kvGet();
-    q.push(Object.assign({kind, at: new Date().toISOString()}, payload));
-    await kvSet(q);
+    await fetch(WORKER, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(Object.assign({kind}, payload))});
     await loadQueue();
-  }catch(e){ alert("警告：写入队列失败：" + e.message); }
+  }catch(e){ alert("服务器连接失败，请稍后再试"); return; }
   alert("提交成功！管理员会尽快处理。");
 }
 function openSubmit(){
@@ -214,78 +205,132 @@ function openSubmit(){
 }
 function openAppeal(){
   if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
-  const name = document.getElementById("aName").value.trim();
   const reason = document.getElementById("aReason").value.trim();
   if(!reason){ alert("申诉理由必填"); return; }
   postForm({
     subject: "[SummitWatchCN 申诉] " + steamId, from_name: "玩家申诉",
-    "申诉人SteamID64": steamId, "申诉人名称": name||"(未填)", "申诉理由": reason
+    "申诉人SteamID64": steamId, "申诉理由": reason
   }, "appeal");
 }
 
 async function loadQueue(){
-  try{
-    kvQueue = await kvGet();
-  }catch(e){
+  try{ kvQueue = await kvGet(); }
+  catch(e){
     document.getElementById("submissions").textContent = "队列加载失败：服务器连接失败，请稍后再试";
-    document.getElementById("appeals").textContent = "";
     return;
   }
   renderQueue();
+  renderMyItems();
 }
+
+function statusTag(st){
+  if(st==="approved") return '<span class="tag ok">已通过</span>';
+  if(st==="rejected") return '<span class="tag bad">已拒绝</span>';
+  if(st==="watching") return '<span class="tag warn">观察期</span>';
+  return '<span class="tag mut">待审核</span>';
+}
+
 function renderQueue(){
-  const subs = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="submit");
+  const subs = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="submit" && (x.it.status||"pending")==="pending");
   const sb = document.getElementById("submissions");
   sb.innerHTML = subs.length ? "" : "（无待处理）";
   subs.forEach(({it,i})=>{
     const d = document.createElement("div");
-    d.style.cssText="border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px";
+    d.className="item";
     d.innerHTML = `<div class="row"><b>举报人: <code>${esc(it["投稿人SteamID64"]||"")}</code></b><span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">被举报人: <code>${esc(it["被举报人SteamID64"]||"")}</code> ${esc(it["被举报人名称"]||"")}
 理由: ${esc(it["理由"]||"")}</div>
-      <div class="row">
+      ${(it.followups||[]).map(f=>`<div class="reason mut">补充 ${esc(f.at)}: ${esc(f.note)}</div>`).join("")}
+      <div class="row" style="margin-top:6px">
         <button class="primary" onclick="approveQueue(${i})">采纳并封禁</button>
-        <button class="danger" onclick="rejectQueue(${i})">拒绝</button>
+        <button class="danger" onclick="rejectQueue(${i})">拒绝（需写理由）</button>
       </div>`;
     sb.appendChild(d);
   });
-  const apps = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="appeal");
+  const apps = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="appeal" && (x.it.status||"pending")==="pending");
   const ab = document.getElementById("appeals");
   ab.innerHTML = apps.length ? "" : "（无待处理）";
   apps.forEach(({it,i})=>{
     const d = document.createElement("div");
-    d.style.cssText="border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px";
+    d.className="item";
     d.innerHTML = `<div class="row"><b>申诉人: <code>${esc(it["申诉人SteamID64"]||"")}</code></b><span class="mut right">${esc(it.at||"")}</span></div>
-      <div style="white-space:pre-wrap;margin:6px 0">名称: ${esc(it["申诉人名称"]||"")}
-理由: ${esc(it["申诉理由"]||"")}</div>
-      <div class="row">
+      <div style="white-space:pre-wrap;margin:6px 0">理由: ${esc(it["申诉理由"]||"")}</div>
+      ${(it.followups||[]).map(f=>`<div class="reason mut">补充 ${esc(f.at)}: ${esc(f.note)}</div>`).join("")}
+      <div class="row" style="margin-top:6px">
         <button class="primary" onclick="approveAppeal(${i})">同意解封</button>
         <button onclick="watchAppeal(${i})">观察</button>
-        <button class="danger" onclick="rejectAppeal(${i})">拒绝</button>
+        <button class="danger" onclick="rejectAppeal(${i})">拒绝（需写理由）</button>
       </div>`;
     ab.appendChild(d);
   });
 }
-function removeKv(idx){
-  kvQueue.splice(idx,1);
-  kvSet(kvQueue);
-  renderQueue();
+
+function renderMyItems(){
+  const box = document.getElementById("myItems");
+  if(!steamId){ box.textContent = "登录 Steam 后显示"; return; }
+  const mine = kvQueue.filter(it=>
+    (it.kind==="submit" && it["投稿人SteamID64"]===steamId) ||
+    (it.kind==="appeal" && it["申诉人SteamID64"]===steamId)
+  );
+  if(!mine.length){ box.textContent = "你还没有提交过投稿/申诉"; return; }
+  box.innerHTML = "";
+  mine.forEach((it, idx)=>{
+    const d = document.createElement("div");
+    d.className = "item";
+    const st = it.status || "pending";
+    const title = it.kind==="submit" ? "举报: " + (it["被举报人名称"]||it["被举报人SteamID64"]) : "申诉";
+    const reasonText = it.kind==="submit" ? it["理由"] : it["申诉理由"];
+    d.innerHTML = `<div class="row"><b>${esc(title)}</b> ${statusTag(st)}<span class="mut right">${esc(it.at||"")}</span></div>
+      <div style="white-space:pre-wrap;margin:6px 0">${esc(reasonText||"")}</div>
+      ${(it.followups||[]).map(f=>`<div class="reason mut">我补充 ${esc(f.at)}: ${esc(f.note)}</div>`).join("")}
+      ${it.adminReply ? `<div class="reason" style="border-color:var(--bad);color:var(--bad)">管理员回复: ${esc(it.adminReply)}</div>` : ""}
+      <div class="row" style="margin-top:6px">
+        <input id="fu${idx}" placeholder="补充材料/说明" style="flex:1;min-width:200px">
+        <button class="primary" onclick="submitFollowup(${idx}, '${it.kind}')">补充并重新提交</button>
+      </div>`;
+    box.appendChild(d);
+  });
 }
+
+async function submitFollowup(idx, kind){
+  const note = document.getElementById("fu"+idx).value.trim();
+  if(!note){ alert("先写补充内容"); return; }
+  try{
+    await fetch(API + "/queue/followup", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({kind, mySteamId: steamId, note})});
+    await loadQueue();
+    alert("已提交补充，等待管理员重新审核");
+  }catch(e){ alert("服务器连接失败，请稍后再试"); }
+}
+
+function updateQueueItem(idx, patch){
+  kvQueue[idx] = Object.assign({}, kvQueue[idx], patch);
+  kvSet(kvQueue).then(()=>{ renderQueue(); renderMyItems(); });
+}
+
 function approveQueue(i){
   const it = kvQueue[i];
   if(!it["被举报人SteamID64"]){ alert("缺 SteamID"); return; }
   mergeEntry(it["被举报人SteamID64"], it["被举报人名称"], it["理由"], "玩家举报");
-  saveData();
-  removeKv(i);
+  saveData().then(()=>updateQueueItem(i, {status:"approved", adminReply:"已采纳"}));
 }
-function rejectQueue(i){ removeKv(i); }
+function rejectQueue(i){
+  const reason = prompt("拒绝理由（必填，会展示给投稿人）：");
+  if(reason===null) return;
+  if(!reason.trim()){ alert("拒绝必须写明理由"); return; }
+  updateQueueItem(i, {status:"rejected", adminReply: reason.trim()});
+}
 function approveAppeal(i){
   const it = kvQueue[i];
   removeEntryById(it["申诉人SteamID64"]);
-  saveData();
-  removeKv(i);
+  saveData().then(()=>updateQueueItem(i, {status:"approved", adminReply:"申诉成立，已解封"}));
 }
-function rejectAppeal(i){ removeKv(i); }
+function rejectAppeal(i){
+  const reason = prompt("拒绝理由（必填，会展示给申诉人）：");
+  if(reason===null) return;
+  if(!reason.trim()){ alert("拒绝必须写明理由"); return; }
+  updateQueueItem(i, {status:"rejected", adminReply: reason.trim()});
+}
 function watchAppeal(i){
   const days = prompt("观察期天数：", "7");
   if(days===null) return;
@@ -294,8 +339,7 @@ function watchAppeal(i){
   const sid = it["申诉人SteamID64"];
   if(!data.pardons.some(p=>p.id===sid)) data.pardons.push({id:sid, until, strikes:0});
   else data.pardons.find(p=>p.id===sid).until = until;
-  saveData();
-  removeKv(i);
+  saveData().then(()=>updateQueueItem(i, {status:"watching", adminReply:"已转入观察期至 "+until}));
 }
 
 function renderWho(){
@@ -308,119 +352,25 @@ function renderWho(){
 
 async function load(){
   try{
-    const r = await fetch(RAW + "?t=" + Date.now());
+    const r = await fetch(API + "/blacklist?t=" + Date.now());
     data = await r.json();
     if(!data.entries) data.entries=[];
     if(!data.pardons) data.pardons=[];
     if(!data.admins) data.admins=[];
-    sha = null;
-    render();
-  }catch(e){ document.getElementById("status").textContent = "加载失败: " + e.message; }
-  loadQueue();
-  if(getToken()) loadIssues();
-}
-
-// ===== Issue 队列 =====
-async function loadIssues(){
-  try{
-    const r = await api("https://api.github.com/repos/" + REPO + "/issues?state=open&labels=" + encodeURIComponent("投稿"));
-    const subs = await r.json();
-    renderIssues("submissions", subs, true);
-    const r2 = await api("https://api.github.com/repos/" + REPO + "/issues?state=open&labels=" + encodeURIComponent("申诉"));
-    const apps = await r2.json();
-    renderIssues("appeals", apps, false);
-  }catch(e){
-    document.getElementById("submissions").textContent = "加载投稿失败: " + e.message;
-  }
-}
-
-function renderIssues(elId, list, isSubmit){
-  const el = document.getElementById(elId);
-  el.innerHTML = "";
-  if(!list.length){ el.textContent = "（无待处理）"; return; }
-  list.forEach(iss=>{
-    const d = document.createElement("div");
-    d.style.cssText = "border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px";
-    d.innerHTML = `<div class="row"><b>#${iss.number} ${esc(iss.title)}</b><span class="mut right">${esc(iss.user.login)} · ${esc((iss.created_at||"").slice(0,10))}</span></div>
-      <div style="white-space:pre-wrap;margin:6px 0">${esc(iss.body||"")}</div>
-      <div class="row">
-        <button class="primary" onclick="actIssue(${iss.number}, ${isSubmit}, true)">${isSubmit?"采纳并封禁":"同意解封"}</button>
-        ${isSubmit ? "" : `<button onclick="watchIssue(${iss.number})">观察（自定义天数）</button>`}
-        <button class="danger" onclick="actIssue(${iss.number}, ${isSubmit}, false)">拒绝</button>
-        <input id="reply${iss.number}" placeholder="回复投稿人/申诉人（可选）" style="flex:1;min-width:200px">
-        <button onclick="replyIssue(${iss.number})">回复并关闭</button>
-      </div>`;
-    el.appendChild(d);
-  });
-}
-
-function parseIssueBody(body){
-  const get = (re)=>{ const m = body.match(re); return m ? m[1].trim() : ""; };
-  return {
-    id: get(/SteamID64:\s*(\S+)/),
-    name: get(/游戏名称:\s*([^\n(]+)/),
-    reason: (body.split("## 理由\n")[1] || body.split("## 申诉理由\n")[1] || "").trim()
-  };
-}
-
-async function commentAndClose(num, reply){
-  if(reply){
-    await api(`https://api.github.com/repos/${REPO}/issues/${num}/comments`, {method:"POST",
-      headers:{"Content-Type":"application/json"}, body: JSON.stringify({body: reply})});
-  }
-  await api(`https://api.github.com/repos/${REPO}/issues/${num}`, {method:"PATCH",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({state:"closed"})});
-}
-
-async function actIssue(num, isSubmit, approve){
-  try{
-    const iss = await (await api(`https://api.github.com/repos/${REPO}/issues/${num}`)).json();
-    const info = parseIssueBody(iss.body||"");
-    if(!info.id){ alert("Issue 里没解析到 SteamID，手动处理"); return; }
-    const reply = document.getElementById("reply"+num).value.trim();
-    if(isSubmit){
-      if(approve){
-        mergeEntry(info.id, info.name, info.reason, "issue#"+num);
-        await commentAndClose(num, reply || "已采纳，该玩家已加入网络黑名单。");
-      } else {
-        await commentAndClose(num, reply || "审核后证据不足，暂不收录。");
-      }
-    } else {
-      if(approve){
-        removeEntryById(info.id);
-        await commentAndClose(num, reply || "申诉成立，已从黑名单移除。");
-      } else {
-        await commentAndClose(num, reply || "申诉驳回，维持封禁。");
-      }
+    // Steam admin: ask secret if not set
+    if(!githubToken && steamId && data.admins.includes(steamId) && !adminSecret){
+      const s = prompt("你是 Steam 管理员，请输入管理密钥：");
+      if(s){ adminSecret = s.trim(); sessionStorage.setItem("swcn_secret", adminSecret); }
     }
-    await saveData();
-    await loadIssues();
-  }catch(e){ alert("操作失败: " + e.message); }
+    setStatus();
+    applyAdminVisibility();
+    render();
+  }catch(e){
+    document.getElementById("status").textContent = "加载失败: " + e.message;
+  }
+  loadQueue();
 }
 
-async function watchIssue(num){
-  const days = prompt("观察期天数：", "7");
-  if(days===null) return;
-  try{
-    const iss = await (await api(`https://api.github.com/repos/${REPO}/issues/${num}`)).json();
-    const info = parseIssueBody(iss.body||"");
-    if(!info.id){ alert("没解析到 SteamID"); return; }
-    const until = new Date(Date.now()+parseInt(days)*86400000).toISOString().slice(0,10);
-    if(!data.pardons.some(p=>p.id===info.id)) data.pardons.push({id:info.id, until, strikes:0});
-    else data.pardons.find(p=>p.id===info.id).until = until;
-    await commentAndClose(num, "已转入观察期至 " + until + "，期间再犯只计数。");
-    await saveData(); await loadIssues();
-  }catch(e){ alert(e.message); }
-}
-
-async function replyIssue(num){
-  const reply = document.getElementById("reply"+num).value.trim();
-  if(!reply){ alert("先填回复内容"); return; }
-  await commentAndClose(num, reply);
-  await loadIssues();
-}
-
-// ===== entries：按 id 合并，理由叠加，历史追溯 =====
 function mergeEntry(id, name, reason, source){
   let e = data.entries.find(x=>x.id===id);
   if(!e){
@@ -431,20 +381,19 @@ function mergeEntry(id, name, reason, source){
   if(!e.history) e.history = [];
   if(name && !e.name) e.name = name;
   if(reason) e.reasons.push(reason + (source?("（来自 "+source+")"):""));
-  e.reason = e.reasons.join("；");  // 兼容客户端
-  e.history.push({t: new Date().toISOString(), by: ghUser||"admin", act:"add", note: reason});
+  e.reason = e.reasons.join("；");
+  e.history.push({t: new Date().toISOString(), by: githubUser||steamId||"admin", act:"add", note: reason});
 }
 function removeEntryById(id){
   const i = data.entries.findIndex(x=>x.id===id);
   if(i>=0){
     const e = data.entries[i];
-    e.history.push({t:new Date().toISOString(), by:ghUser||"admin", act:"remove", note:"申诉成立"});
+    e.history.push({t:new Date().toISOString(), by:githubUser||steamId||"admin", act:"remove", note:"申诉成立"});
     data.entries.splice(i,1);
   }
 }
 
 function render(){
-  setStatus();
   const eb = document.getElementById("entriesBody");
   eb.innerHTML = "";
   data.entries.forEach((e,i)=>{
@@ -455,7 +404,7 @@ function render(){
       <td>${reasons.map(r=>`<div class="reason">${esc(r)}</div>`).join("")}</td>
       <td>${esc(e.added||"")}</td>
       <td>${pardoned ? '<span class="tag warn">赦免观察中</span>' : '<span class="tag bad">已封禁</span>'}</td>
-      <td>
+      <td class="opcol" style="display:none">
         <button onclick="pardon(${i})">限时赦免</button>
         <button class="danger" onclick="delEntry(${i})">删除</button>
         <details><summary>历史</summary>${(e.history||[]).map(h=>`<div class="mut">${esc(h.t)} · ${esc(h.by)} · ${esc(h.act)} · ${esc(h.note||"")}</div>`).join("")}</details>
@@ -467,9 +416,10 @@ function render(){
   data.pardons.forEach((p,i)=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><code>${esc(p.id)}</code></td>
-      <td><input type="date" value="${esc(p.until||"")}" id="pd${i}"></td>
+      <td>${esc(p.until||"")}</td>
       <td>${p.strikes||0}</td>
-      <td><button onclick="updatePardon(${i})">保存到期</button>
+      <td class="opcol" style="display:none"><input type="date" value="${esc(p.until||"")}" id="pd${i}">
+          <button onclick="updatePardon(${i})">保存到期</button>
           <button onclick="strike(${i})">+1 再犯</button>
           <button class="danger" onclick="delPardon(${i})">移除</button></td>`;
     pb.appendChild(tr);
@@ -480,13 +430,45 @@ function render(){
     const span = document.createElement("span");
     span.className = "tag ok";
     span.textContent = a;
+    if(githubToken){
+      const btn = document.createElement("button");
+      btn.className = "danger";
+      btn.style.cssText = "margin-left:6px;padding:1px 8px";
+      btn.textContent = "×";
+      btn.onclick = ()=>removeAdmin(a);
+      span.appendChild(btn);
+    }
     ab.appendChild(span);
   });
+  document.getElementById("addAdminRow").style.display = githubToken ? "flex" : "none";
+  applyAdminVisibility();
+}
+
+async function adminOp(action, sid){
+  if(!githubToken){ alert("仅主管理员可操作"); return; }
+  try{
+    const r = await fetch(API + "/admins", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({githubToken, action, sid})});
+    if(!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    data.admins = d.admins;
+    render();
+  }catch(e){ alert("操作失败: " + e.message); }
+}
+function addAdmin(){
+  const sid = document.getElementById("newAdmin").value.trim();
+  if(!/^\d{17}$/.test(sid)){ alert("SteamID64 应为 17 位数字"); return; }
+  adminOp("add", sid).then(()=>{ document.getElementById("newAdmin").value=""; });
+}
+function removeAdmin(sid){
+  if(!confirm("移除管理员 " + sid + "？")) return;
+  adminOp("remove", sid);
 }
 
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 function addEntry(){
+  if(!isAuthed()){ alert("需要管理员权限"); return; }
   const id = document.getElementById("nId").value.trim();
   if(!id){ alert("SteamID 必填"); return; }
   mergeEntry(id, document.getElementById("nName").value.trim(), document.getElementById("nReason").value.trim(), "manual");
@@ -495,7 +477,7 @@ function addEntry(){
 }
 function delEntry(i){ if(!confirm("删除该封禁条目？"))return;
   data.entries[i].history = data.entries[i].history||[];
-  data.entries[i].history.push({t:new Date().toISOString(),by:ghUser||"admin",act:"remove",note:"手动删除"});
+  data.entries[i].history.push({t:new Date().toISOString(),by:githubUser||steamId||"admin",act:"remove",note:"手动删除"});
   data.entries.splice(i,1); saveData();
 }
 function pardon(i){
@@ -512,23 +494,22 @@ function delPardon(i){ if(!confirm("结束该玩家的赦免观察？"))return; 
 function strike(i){ data.pardons[i].strikes = (data.pardons[i].strikes||0)+1; saveData(); }
 
 async function saveData(){
-  if(!getToken()){ alert("请先登录 Token"); return; }
+  if(!isAuthed()){ alert("需要管理员权限"); return; }
   try{
-    if(!sha){
-      const r = await api("https://api.github.com/repos/" + REPO + "/contents/" + PATH);
-      sha = (await r.json()).sha;
-    }
-    const body = JSON.stringify(data, null, 2);
-    await api("https://api.github.com/repos/" + REPO + "/contents/" + PATH, {
-      method:"PUT",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({message:"update blacklist", content: btoa(unescape(encodeURIComponent(body))), sha})
+    const body = {entries: data.entries, pardons: data.pardons};
+    if(githubToken) body.githubToken = githubToken;
+    else { body.admin = steamId; body.secret = adminSecret; }
+    const r = await fetch(API + "/blacklist", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
     });
-    sha = null;
+    if(!r.ok){
+      if(r.status===403){ alert("服务器连接失败，请稍后再试"); return; }
+      throw new Error(r.status);
+    }
     render();
-    document.getElementById("status").textContent = "已提交到仓库 ✓";
+    document.getElementById("status").textContent = "已保存 ✓";
   }catch(e){
-    document.getElementById("status").textContent = "服务器连接失败，请稍后再试：" + e.message;
+    document.getElementById("status").textContent = "服务器连接失败，请稍后再试";
   }
 }
 
@@ -544,8 +525,22 @@ document.getElementById("btnSteam").onclick = ()=>{
     "openid.claimed_id":"http://specs.openid.net/auth/2.0/identifier_select"
   });
 };
+document.getElementById("btnGh").onclick = async ()=>{
+  const t = prompt("粘贴你的 GitHub fine-grained Token（需要 Public Repo 只读权限即可）：");
+  if(!t) return;
+  try{
+    const r = await fetch("https://api.github.com/user", {headers:{Authorization:"token "+t, "User-Agent":"swcn"}});
+    if(!r.ok){ alert("Token 无效"); return; }
+    const u = await r.json();
+    if(u.login !== "linling000I"){ alert("仅主管理员 linling000I 可用此登录"); return; }
+    githubToken = t.trim();
+    githubUser = u.login;
+    sessionStorage.setItem("swcn_gh", githubToken);
+    setStatus(); applyAdminVisibility(); render(); loadQueue();
+  }catch(e){ alert("登录失败: " + e.message); }
+};
+
 (function(){
-  // Steam 回跳后 openid.claimed_id 在 query 里（已 URL 编码）
   const params = new URLSearchParams(location.search);
   const claimed = params.get("openid.claimed_id") || "";
   const m = claimed.match(/\/id\/(\d+)/);
