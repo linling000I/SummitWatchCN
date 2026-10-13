@@ -538,9 +538,11 @@ function render(){
   const ab = document.getElementById("adminsBody");
   ab.innerHTML = "";
   data.admins.forEach(a=>{
+    const e = (data.entries||[]).find(x=>x.id===a);
+    const nm = (e && e.name) || "";
     const span = document.createElement("span");
     span.className = "tag ok";
-    span.textContent = a;
+    span.textContent = a + (nm ? "（" + nm + "）" : "");
     if(githubToken){
       const btn = document.createElement("button");
       btn.className = "danger";
