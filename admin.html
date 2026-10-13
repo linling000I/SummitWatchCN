@@ -142,7 +142,7 @@ const WORKER = API + "/queue";
 let data = {admins:[], entries:[], pardons:[]};
 let kvQueue = [];
 // SteamID 只从 sessionStorage 读，且必须先经 Worker /steam/verify 验证过，防止 URL 手动改
-let steamId = sessionStorage.getItem("swcn_sid") || "";
+let steamId = sessionStorage.getItem("swcn_sid_v2") || "";
 let adminSecret = "";
 let githubToken = "";
 let githubUser = "";
@@ -641,9 +641,9 @@ document.getElementById("btnGh").onclick = async ()=>{
       const d = await r.json();
       if(d.steamid){
         steamId = d.steamid;
-        sessionStorage.setItem("swcn_sid", steamId);
+        sessionStorage.setItem("swcn_sid_v2", steamId);
       } else {
-        alert("Steam 身份验证失败");
+        alert("Steam 身份验证失败：" + (d.detail || d.error || "未知错误"));
       }
     }catch(e){ alert("Steam 身份验证网络错误"); }
     // 清掉 URL 里的 openid.* 参数和 hash
