@@ -172,21 +172,18 @@ function setStatus(){
 
 // ===== 公开提交：Web3Forms 发邮件 + kvdb.io 存队列（网页内可见可处理）=====
 const WEB3FORMS_KEY = "9d692dbe-d2ee-423a-ae0b-c5f391895955";
-const KVDB_ID = "8rZYjzYdDNK2ccj3hTFzfh";
+const WORKER = "https://summitwatchcn.a17713948049.workers.dev/queue";
 let kvQueue = [];
 
 async function kvGet(){
-  if(!KVDB_ID) return [];
   try{
-    const r = await fetch("https://kvdb.io/" + KVDB_ID + "/queue");
-    if(!r.ok) return [];
-    const t = await r.text();
-    return t ? JSON.parse(t) : [];
-  }catch(e){ return []; }
+    const r = await fetch(WORKER);
+    if(!r.ok) throw new Error(r.status);
+    return await r.json();
+  }catch(e){ throw e; }
 }
 async function kvSet(arr){
-  if(!KVDB_ID) return;
-  await fetch("https://kvdb.io/" + KVDB_ID + "/queue", {method:"PUT", body: JSON.stringify(arr)});
+  await fetch(WORKER, {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(arr)});
 }
 async function postForm(payload, kind){
   try{
@@ -195,14 +192,12 @@ async function postForm(payload, kind){
       body: JSON.stringify(Object.assign({access_key: WEB3FORMS_KEY}, payload))
     });
   }catch(e){}
-  if(KVDB_ID){
-    try{
-      const q = await kvGet();
-      q.push(Object.assign({kind, at: new Date().toISOString()}, payload));
-      await kvSet(q);
-      await loadQueue();
-    }catch(e){ alert("警告：写入队列失败：" + e.message); }
-  }
+  try{
+    const q = await kvGet();
+    q.push(Object.assign({kind, at: new Date().toISOString()}, payload));
+    await kvSet(q);
+    await loadQueue();
+  }catch(e){ alert("警告：写入队列失败：" + e.message); }
   alert("提交成功！管理员会尽快处理。");
 }
 function openSubmit(){
@@ -229,12 +224,13 @@ function openAppeal(){
 }
 
 async function loadQueue(){
-  if(!KVDB_ID){
-    document.getElementById("submissions").textContent = "（未配置 kvdb，队列不可见；举报/申诉已发邮件）";
-    document.getElementById("appeals").textContent = "（未配置 kvdb）";
+  try{
+    kvQueue = await kvGet();
+  }catch(e){
+    document.getElementById("submissions").textContent = "队列加载失败：服务器连接失败，请稍后再试";
+    document.getElementById("appeals").textContent = "";
     return;
   }
-  kvQueue = await kvGet();
   renderQueue();
 }
 function renderQueue(){
