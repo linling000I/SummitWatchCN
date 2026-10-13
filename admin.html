@@ -233,7 +233,7 @@ function openSubmit(){
   const id = document.getElementById("sId").value.trim();
   const name = document.getElementById("sName").value.trim();
   const reason = document.getElementById("sReason").value.trim();
-  if(!id || !reason){ alert("被举报人 SteamID64 和举报理由必填"); return; }
+  if(!/^\d{17}$/.test(id) || !reason){ alert("被举报人 SteamID64 应为 17 位数字，且举报理由必填，请检查"); return; }
   postForm({
     subject: "[SummitWatchCN 举报] " + (name||id), from_name: "玩家举报",
     "被举报人SteamID64": id, "被举报人名称": name||"(未填)",
@@ -493,7 +493,7 @@ async function adminOp(action, sid){
 }
 function addAdmin(){
   const sid = document.getElementById("newAdmin").value.trim();
-  if(!/^\d{17}$/.test(sid)){ alert("SteamID64 应为 17 位数字"); return; }
+  if(!/^\d{17}$/.test(sid)){ alert("SteamID64 应为 17 位数字，请检查"); return; }
   adminOp("add", sid).then(()=>{ document.getElementById("newAdmin").value=""; });
 }
 function removeAdmin(sid){
@@ -506,7 +506,7 @@ function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g, c=>({"&":"&amp
 function addEntry(){
   if(!isAuthed()){ alert("需要管理员权限"); return; }
   const id = document.getElementById("nId").value.trim();
-  if(!id){ alert("SteamID 必填"); return; }
+  if(!/^\d{17}$/.test(id)){ alert("SteamID64 应为 17 位数字，请检查"); return; }
   mergeEntry(id, document.getElementById("nName").value.trim(), document.getElementById("nReason").value.trim(), "manual");
   document.getElementById("nId").value="";document.getElementById("nName").value="";document.getElementById("nReason").value="";
   saveData();
