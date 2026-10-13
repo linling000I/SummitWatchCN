@@ -42,6 +42,7 @@
 <header>
   <h1>⛰️ SummitWatchCN 网络黑名单</h1>
   <span id="status">加载中…</span>
+  <span class="mut" id="visitStat" style="margin-left:12px"></span>
   <span class="right row">
     <button id="btnGh" class="gh">主管理员 GitHub 登录</button>
     <button id="btnSteam">用 Steam 识别身份</button>
@@ -118,7 +119,7 @@
   </div>
 
   <div class="card" id="historyCard" style="display:none">
-    <div class="row"><b>🗂️ 历史投稿/申诉（已处理，可手动删除）</b></div>
+    <div class="row"><b>🗂️ 历史投稿/申诉</b></div>
     <div id="historyList" class="mut" style="margin-top:8px">加载中…</div>
   </div>
 
@@ -378,12 +379,14 @@ function updateQueueItem(idx, patch){
 }
 
 function approveQueue(i){
+  if(!isAuthed()){ alert("需要管理员权限"); return; }
   const it = kvQueue[i];
   if(!it["被举报人SteamID64"]){ alert("缺 SteamID"); return; }
   mergeEntry(it["被举报人SteamID64"], it["被举报人名称"], it["理由"], "玩家举报");
   saveData().then(()=>updateQueueItem(i, {status:"approved", adminReply:"已采纳"}));
 }
 function rejectQueue(i){
+  if(!isAuthed()){ alert("需要管理员权限"); return; }
   const reason = prompt("拒绝理由（必填，会展示给投稿人）：");
   if(reason===null) return;
   if(!reason.trim()){ alert("拒绝必须写明理由"); return; }
@@ -448,6 +451,15 @@ async function load(){
     document.getElementById("status").textContent = "加载失败: " + e.message;
   }
   loadQueue();
+  trackVisit();
+}
+
+async function trackVisit(){
+  try{
+    const r = await fetch(API + "/visit");
+    const v = await r.json();
+    document.getElementById("visitStat").textContent = "今日 " + v.today + " 次 · 总 " + v.total + " 次";
+  }catch(e){}
 }
 
 async function trackVisit(){
