@@ -136,8 +136,9 @@
   <!-- 反馈模块：所有登录用户可提交，只主管理员可见 -->
   <div class="card">
     <div class="row"><b>💬 反馈/建议</b></div>
+    <div class="mut">提交反馈将记录你的 SteamID（名称），仅主管理员可见。</div>
     <div class="row" style="margin-top:8px">
-      <textarea id="fbText" placeholder="反馈内容（bug、建议等）" style="flex:1;min-height:60px"></textarea>
+      <textarea id="fbText" placeholder="反馈内容（bug、建议、误封申诉等）" style="flex:1;min-height:60px"></textarea>
       <button class="primary" onclick="submitFeedback()">提交反馈</button>
     </div>
     <div id="fbList" style="margin-top:10px"></div>
@@ -384,7 +385,8 @@ function updateQueueItem(idx, patch){
   patch.operator = operatorLabel();
   patch.opAt = new Date().toISOString();
   kvQueue[idx] = Object.assign({}, kvQueue[idx], patch);
-  kvSet(kvQueue).then(()=>{ renderQueue(); renderHistory(); renderMyItems(); });
+  kvSet(kvQueue).then(()=>{ renderQueue(); renderHistory(); renderMyItems(); })
+    .catch(e=>{ alert("保存失败: " + e.message + "（请确认主管理员已登录）"); });
 }
 
 function approveQueue(i){
@@ -433,6 +435,7 @@ function renderWho(){
     : '⚠️ 未识别身份，请点右上角「用 Steam 识别身份」后再提交。';
   document.getElementById("whoBox").innerHTML = html;
   document.getElementById("whoBox2").innerHTML = html;
+  renderMyItems();
 }
 function editName(){
   const n = prompt("你的游戏昵称：", myName);
