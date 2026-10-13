@@ -383,7 +383,8 @@ function approveQueue(i){
   const it = kvQueue[i];
   if(!it["被举报人SteamID64"]){ alert("缺 SteamID"); return; }
   mergeEntry(it["被举报人SteamID64"], it["被举报人名称"], it["理由"], "玩家举报");
-  saveData().then(()=>updateQueueItem(i, {status:"approved", adminReply:"已采纳"}));
+  saveData();
+  updateQueueItem(i, {status:"approved", adminReply:"已采纳"});
 }
 function rejectQueue(i){
   if(!isAuthed()){ alert("需要管理员权限"); return; }
