@@ -244,7 +244,8 @@ function openSubmit(){
   const id = document.getElementById("sId").value.trim();
   const name = document.getElementById("sName").value.trim();
   const reason = document.getElementById("sReason").value.trim();
-  if(!/^\d{17}$/.test(id) || !reason){ alert("被举报人 SteamID64 应为 17 位数字，且举报理由必填，请检查"); return; }
+  if(!/^\d{17}$/.test(id)){ alert("被举报人 SteamID64 应为 17 位纯数字，请检查"); return; }
+  if(!reason){ alert("举报理由必填，请填写"); return; }
   postForm({
     subject: "[SummitWatchCN 举报] " + (name||id), from_name: "玩家举报",
     "被举报人SteamID64": id, "被举报人名称": name||"(未填)",
@@ -254,7 +255,7 @@ function openSubmit(){
 function openAppeal(){
   if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
   const reason = document.getElementById("aReason").value.trim();
-  if(!reason){ alert("申诉理由必填"); return; }
+  if(!reason){ alert("申诉理由必填，请填写"); return; }
   postForm({
     subject: "[SummitWatchCN 申诉] " + steamId, from_name: "玩家申诉",
     "申诉人SteamID64": steamId, "申诉人名称": myName||"(未填)", "申诉理由": reason
@@ -465,9 +466,9 @@ function renderHistory(){
     d.innerHTML = `<div class="row"><b>${esc(title)}</b> ${statusTag(st)}<span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">${esc(reasonText||"")}</div>
       ${it.adminReply ? `<div class="reason mut">管理员回复: ${esc(it.adminReply)}${it.operator?("（操作人: "+esc(it.operator)+"）"):""}${it.opAt?(" · "+esc(it.opAt)):""}</div>` : ""}
-      <div class="row" style="margin-top:6px">
+      ${isAdmin() && githubToken ? `<div class="row" style="margin-top:6px">
         <button class="danger" onclick="deleteHistory(${i})">删除该记录</button>
-      </div>`;
+      </div>` : ""}`;
     el.appendChild(d);
   });
 }
@@ -539,10 +540,25 @@ function render(){
   ab.innerHTML = "";
   data.admins.forEach(a=>{
     const e = (data.entries||[]).find(x=>x.id===a);
-    const nm = (e && e.name) || "";
+    const nm = (data.adminNames && data.adminNames[a]) || (e && e.name) || "";
     const span = document.createElement("span");
     span.className = "tag ok";
-    span.textContent = a + (nm ? "（" + nm + "）" : "");
+    span.style.cssText = "display:inline-flex;align-items:center;gap:4px";
+    span.innerHTML = esc(a) + (nm ? "（" + esc(nm) + "）" : "");
+    // 管理员可改自己名称，主管理可改所有人
+    const canEdit = (a===steamId) || githubToken;
+    if(canEdit){
+      const eb = document.createElement("button");
+      eb.className = "ghost";
+      eb.style.cssText = "padding:0 6px;font-size:12px";
+      eb.textContent = "改";
+      eb.onclick = ()=>{
+        const n = prompt("设置该管理员显示名称：", nm);
+        if(n===null) return;
+        setAdminName(a, n.trim());
+      };
+      span.appendChild(eb);
+    }
     if(githubToken){
       const btn = document.createElement("button");
       btn.className = "danger";
@@ -578,6 +594,15 @@ function removeAdmin(sid){
   adminOp("remove", sid);
 }
 
+async function setAdminName(a, name){
+  if(!data.adminNames) data.adminNames = {};
+  if(name) data.adminNames[a] = name;
+  else delete data.adminNames[a];
+  try{
+    await saveData();
+  }catch(e){ alert("保存失败: " + e.message); }
+}
+
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 function addEntry(){
@@ -609,7 +634,7 @@ function strike(i){ data.pardons[i].strikes = (data.pardons[i].strikes||0)+1; sa
 async function saveData(){
   if(!isAuthed()){ alert("需要管理员权限"); return; }
   try{
-    const body = {entries: data.entries, pardons: data.pardons};
+    const body = {entries: data.entries, pardons: data.pardons, adminNames: data.adminNames||{}};
     if(githubToken) body.githubToken = githubToken;
     else { body.admin = steamId; body.secret = adminSecret; }
     const r = await fetch(API + "/blacklist", {
