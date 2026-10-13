@@ -3,6 +3,22 @@
   "admins": [
     "76561199334743099"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "1111",
+      "name": "",
+      "reasons": [],
+      "added": "2026-10-13",
+      "history": [
+        {
+          "t": "2026-10-13T09:24:43.075Z",
+          "by": "admin",
+          "act": "add",
+          "note": ""
+        }
+      ],
+      "reason": ""
+    }
+  ],
   "pardons": []
 }
