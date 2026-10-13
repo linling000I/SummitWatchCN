@@ -3,6 +3,22 @@
   "admins": [
     "76561199334743099"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "11111",
+      "name": "",
+      "reasons": [],
+      "added": "2026-10-13",
+      "history": [
+        {
+          "t": "2026-10-13T09:26:24.592Z",
+          "by": "linling000I",
+          "act": "add",
+          "note": ""
+        }
+      ],
+      "reason": ""
+    }
+  ],
   "pardons": []
 }
