@@ -375,7 +375,7 @@ function updateQueueItem(idx, patch){
   patch.opAt = new Date().toISOString();
   kvQueue[idx] = Object.assign({}, kvQueue[idx], patch);
   renderQueue(); renderHistory(); renderMyItems();
-  kvSet(kvQueue).catch(e=>{ console.error("queue save failed", e); });
+  kvSet(kvQueue).then(()=>loadQueue()).catch(e=>{ console.error("queue save failed", e); alert("保存到服务器失败: " + e.message); });
 }
 
 function approveQueue(i){
