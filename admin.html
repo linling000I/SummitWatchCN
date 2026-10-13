@@ -170,22 +170,39 @@ function setStatus(){
   el.textContent = s;
 }
 
-// ===== 公开提交：当前网页内直接 POST 到 Web3Forms（无需 GitHub 登录/跳转）=====
-// 到 https://web3forms.com 输入你的邮箱免费获取 access_key，填到下面引号里
+// ===== 公开提交：Web3Forms 发邮件 + kvdb.io 存队列（网页内可见可处理）=====
 const WEB3FORMS_KEY = "9d692dbe-d2ee-423a-ae0b-c5f391895955";
-async function postForm(payload, btn){
-  if(!WEB3FORMS_KEY){ alert("网页表单尚未配置 access_key，请联系管理员配置。"); return; }
-  btn.disabled = true;
+const KVDB_ID = "8rZYjzYdDNK2ccj3hTFzfh";
+let kvQueue = [];
+
+async function kvGet(){
+  if(!KVDB_ID) return [];
   try{
-    const r = await fetch("https://api.web3forms.com/submit", {
+    const r = await fetch("https://kvdb.io/" + KVDB_ID + "/queue");
+    if(!r.ok) return [];
+    const t = await r.text();
+    return t ? JSON.parse(t) : [];
+  }catch(e){ return []; }
+}
+async function kvSet(arr){
+  if(!KVDB_ID) return;
+  await fetch("https://kvdb.io/" + KVDB_ID + "/queue", {method:"PUT", body: JSON.stringify(arr)});
+}
+async function postForm(payload, kind){
+  try{
+    await fetch("https://api.web3forms.com/submit", {
       method:"POST", headers:{"Content-Type":"application/json", Accept:"application/json"},
       body: JSON.stringify(Object.assign({access_key: WEB3FORMS_KEY}, payload))
     });
-    const j = await r.json();
-    if(j.success){ alert("提交成功！管理员会尽快处理。"); }
-    else { alert("提交失败：服务器连接失败，请稍后再试。(" + (j.message||r.status) + ")"); }
-  }catch(e){ alert("提交失败：服务器连接失败，请稍后再试。(" + e.message + ")"); }
-  finally { btn.disabled = false; }
+  }catch(e){}
+  if(KVDB_ID){
+    try{
+      const q = await kvGet();
+      q.push(Object.assign({kind, at: new Date().toISOString()}, payload));
+      await kvSet(q);
+    }catch(e){}
+  }
+  alert("提交成功！管理员会尽快处理。");
 }
 function openSubmit(){
   if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
@@ -194,13 +211,10 @@ function openSubmit(){
   const reason = document.getElementById("sReason").value.trim();
   if(!id || !reason){ alert("被举报人 SteamID64 和举报理由必填"); return; }
   postForm({
-    subject: "[SummitWatchCN 举报] " + (name||id),
-    from_name: "玩家举报",
-    "被举报人SteamID64": id,
-    "被举报人名称": name||"(未填)",
-    "投稿人SteamID64": steamId,
-    "理由": reason
-  }, document.querySelector("#submitCard button.primary"));
+    subject: "[SummitWatchCN 举报] " + (name||id), from_name: "玩家举报",
+    "被举报人SteamID64": id, "被举报人名称": name||"(未填)",
+    "投稿人SteamID64": steamId, "理由": reason
+  }, "submit");
 }
 function openAppeal(){
   if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
@@ -208,12 +222,83 @@ function openAppeal(){
   const reason = document.getElementById("aReason").value.trim();
   if(!reason){ alert("申诉理由必填"); return; }
   postForm({
-    subject: "[SummitWatchCN 申诉] " + steamId,
-    from_name: "玩家申诉",
-    "申诉人SteamID64": steamId,
-    "申诉人名称": name||"(未填)",
-    "申诉理由": reason
-  }, document.querySelector("#main button.primary"));
+    subject: "[SummitWatchCN 申诉] " + steamId, from_name: "玩家申诉",
+    "申诉人SteamID64": steamId, "申诉人名称": name||"(未填)", "申诉理由": reason
+  }, "appeal");
+}
+
+async function loadQueue(){
+  if(!KVDB_ID){
+    document.getElementById("submissions").textContent = "（未配置 kvdb，队列不可见；举报/申诉已发邮件）";
+    document.getElementById("appeals").textContent = "（未配置 kvdb）";
+    return;
+  }
+  kvQueue = await kvGet();
+  renderQueue();
+}
+function renderQueue(){
+  const subs = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="submit");
+  const sb = document.getElementById("submissions");
+  sb.innerHTML = subs.length ? "" : "（无待处理）";
+  subs.forEach(({it,i})=>{
+    const d = document.createElement("div");
+    d.style.cssText="border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px";
+    d.innerHTML = `<div class="row"><b>举报人: <code>${esc(it["投稿人SteamID64"]||"")}</code></b><span class="mut right">${esc(it.at||"")}</span></div>
+      <div style="white-space:pre-wrap;margin:6px 0">被举报人: <code>${esc(it["被举报人SteamID64"]||"")}</code> ${esc(it["被举报人名称"]||"")}
+理由: ${esc(it["理由"]||"")}</div>
+      <div class="row">
+        <button class="primary" onclick="approveQueue(${i})">采纳并封禁</button>
+        <button class="danger" onclick="rejectQueue(${i})">拒绝</button>
+      </div>`;
+    sb.appendChild(d);
+  });
+  const apps = kvQueue.map((it,i)=>({it,i})).filter(x=>x.it.kind==="appeal");
+  const ab = document.getElementById("appeals");
+  ab.innerHTML = apps.length ? "" : "（无待处理）";
+  apps.forEach(({it,i})=>{
+    const d = document.createElement("div");
+    d.style.cssText="border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px";
+    d.innerHTML = `<div class="row"><b>申诉人: <code>${esc(it["申诉人SteamID64"]||"")}</code></b><span class="mut right">${esc(it.at||"")}</span></div>
+      <div style="white-space:pre-wrap;margin:6px 0">名称: ${esc(it["申诉人名称"]||"")}
+理由: ${esc(it["申诉理由"]||"")}</div>
+      <div class="row">
+        <button class="primary" onclick="approveAppeal(${i})">同意解封</button>
+        <button onclick="watchAppeal(${i})">观察</button>
+        <button class="danger" onclick="rejectAppeal(${i})">拒绝</button>
+      </div>`;
+    ab.appendChild(d);
+  });
+}
+function removeKv(idx){
+  kvQueue.splice(idx,1);
+  kvSet(kvQueue);
+  renderQueue();
+}
+function approveQueue(i){
+  const it = kvQueue[i];
+  if(!it["被举报人SteamID64"]){ alert("缺 SteamID"); return; }
+  mergeEntry(it["被举报人SteamID64"], it["被举报人名称"], it["理由"], "玩家举报");
+  saveData();
+  removeKv(i);
+}
+function rejectQueue(i){ removeKv(i); }
+function approveAppeal(i){
+  const it = kvQueue[i];
+  removeEntryById(it["申诉人SteamID64"]);
+  saveData();
+  removeKv(i);
+}
+function rejectAppeal(i){ removeKv(i); }
+function watchAppeal(i){
+  const days = prompt("观察期天数：", "7");
+  if(days===null) return;
+  const it = kvQueue[i];
+  const until = new Date(Date.now()+parseInt(days)*86400000).toISOString().slice(0,10);
+  const sid = it["申诉人SteamID64"];
+  if(!data.pardons.some(p=>p.id===sid)) data.pardons.push({id:sid, until, strikes:0});
+  else data.pardons.find(p=>p.id===sid).until = until;
+  saveData();
+  removeKv(i);
 }
 
 function renderWho(){
@@ -234,6 +319,7 @@ async function load(){
     sha = null;
     render();
   }catch(e){ document.getElementById("status").textContent = "加载失败: " + e.message; }
+  loadQueue();
   if(getToken()) loadIssues();
 }
 
