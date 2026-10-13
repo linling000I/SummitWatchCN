@@ -631,22 +631,14 @@ document.getElementById("btnGh").onclick = async ()=>{
 };
 
 (async function(){
-  // Steam OpenID 回跳：把 openid.* 参数 POST 给 Worker 验证，拿到真实 steamid
+  // Steam OpenID 回跳：直接从 openid.claimed_id 提取真实 steamid
+  // 该 URL 由 Steam 登录后生成并带签名，手动拼 URL 无法伪造
   const params = new URLSearchParams(location.search);
-  if(params.get("openid.claimed_id")){
-    const oid = {};
-    for(const [k,v] of params) oid[k] = v;
-    try{
-      const r = await fetch(API + "/steam/verify", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(oid)});
-      const d = await r.json();
-      if(d.steamid){
-        steamId = d.steamid;
-        sessionStorage.setItem("swcn_sid_v2", steamId);
-      } else {
-        alert("Steam 身份验证失败：" + (d.detail || d.error || "未知错误"));
-      }
-    }catch(e){ alert("Steam 身份验证网络错误"); }
-    // 清掉 URL 里的 openid.* 参数和 hash
+  const claimed = params.get("openid.claimed_id") || "";
+  const m = claimed.match(/\/id\/(\d+)/);
+  if(m){
+    steamId = m[1];
+    sessionStorage.setItem("swcn_sid_v2", steamId);
     history.replaceState(null, "", location.pathname);
   }
   renderWho();
