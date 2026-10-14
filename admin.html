@@ -463,51 +463,6 @@ async function trackVisit(){
   }catch(e){}
 }
 
-async function trackVisit(){
-  try{
-    const r = await fetch(API + "/visit");
-    const v = await r.json();
-    document.getElementById("visitStat").textContent = "今日 " + v.today + " 次 · 总 " + v.total + " 次";
-  }catch(e){}
-}
-
-async function submitFeedback(){
-  if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
-  const text = document.getElementById("fbText").value.trim();
-  if(!text){ alert("反馈内容不能为空"); return; }
-  try{
-    const r = await fetch(API + "/feedback", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({steamId, name: myName||"", text})});
-    if(r.ok){ document.getElementById("fbText").value=""; alert("已提交，感谢反馈！"); }
-    else alert("服务器连接失败，请稍后再试");
-  }catch(e){ alert("服务器连接失败，请稍后再试"); }
-}
-
-async function loadFeedback(){
-  try{
-    const r = await fetch(API + "/feedback?githubToken=" + encodeURIComponent(githubToken));
-    if(!r.ok) return;
-    const list = await r.json();
-    const el = document.getElementById("fbList");
-    if(!list.length){ el.innerHTML = '<div class="mut">暂无反馈</div>'; return; }
-    el.innerHTML = '<div class="row" style="margin:8px 0"><b>📬 收到的反馈（仅主管理员可见）</b></div>' + list.slice().reverse().map(f=>
-      `<div class="row" style="padding:6px 0;border-bottom:1px solid #333">
-        <div><code>${esc(f.steamId)}</code>${f.name?("（"+esc(f.name)+"）"):""} <span class="mut">· ${esc(f.at||"")}</span></div>
-        <div style="white-space:pre-wrap;margin:4px 0">${esc(f.text)}</div>
-        <button class="danger" style="padding:1px 8px;font-size:12px" onclick="delFeedback(${f.id})">删除</button>
-      </div>`).join("");
-  }catch(e){}
-}
-
-async function delFeedback(id){
-  if(!confirm("删除这条反馈？")) return;
-  try{
-    await fetch(API + "/feedback/delete", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({githubToken, id})});
-    loadFeedback();
-  }catch(e){ alert("删除失败"); }
-}
-
 function renderHistory(){
   const el = document.getElementById("historyList");
   if(!el) return;
@@ -522,7 +477,7 @@ function renderHistory(){
     d.innerHTML = `<div class="row"><b>${esc(title)}</b> ${statusTag(st)}<span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">${esc(reasonText||"")}</div>
       ${it.adminReply ? `<div class="reason mut">管理员回复: ${esc(it.adminReply)}${it.operator?("（操作人: "+esc(it.operator)+"）"):""}${it.opAt?(" · "+esc(it.opAt)):""}</div>` : ""}
-      ${isAdmin() && githubToken ? `<div class="row" style="margin-top:6px">
+      ${isAuthed() && githubToken ? `<div class="row" style="margin-top:6px">
         <button class="danger" onclick="deleteHistory(${i})">删除该记录</button>
       </div>` : ""}`;
     el.appendChild(d);
@@ -544,7 +499,7 @@ function mergeEntry(id, name, reason, source){
   if(!e.reasons) e.reasons = [];
   if(!e.history) e.history = [];
   if(name && !e.name) e.name = name;
-  if(reason) e.reasons.push(reason + (source?("（来自 "+source+")"):""));
+  if(reason) e.reasons.push(reason + (source?("（来自 "+source+"")":""));
   e.reason = e.reasons.join("；");
   e.history.push({t: new Date().toISOString(), by: githubUser||steamId||"admin", act:"add", note: reason});
 }
@@ -734,7 +689,7 @@ document.getElementById("btnGh").onclick = async ()=>{
     if(u.login !== "linling000I"){ alert("仅主管理员 linling000I 可用此登录"); return; }
     githubToken = t.trim();
     githubUser = u.login;
-    setStatus(); applyAdminVisibility(); render(); loadQueue(); loadFeedback();
+    setStatus(); applyAdminVisibility(); render(); loadQueue();
   }catch(e){ alert("登录失败: " + e.message); }
 };
 
