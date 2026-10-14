@@ -2,16 +2,15 @@
 
 为 **[SummitWatch](https://thunderstore.io/c/peak/p/JavaMods/SummitWatch/)** 制作的中文附属模组，提供完整汉化与跨玩家共享的网络黑名单。
 
-## 🌐 网页管理台
+## 🌐 管理平台
 
-**网址：[https://summitwatchcn.icu](https://summitwatchcn.icu)**
+**网址：[https://linling000i.github.io/SummitWatchCN/admin.html](https://linling000i.github.io/SummitWatchCN/admin.html)**
 
-一个免费、开源的网页管理台，给所有玩家和管理员使用：
+一个免费、开源的网页管理台，给所有玩家使用：
 
 - **玩家侧**：用 Steam 登录即可查看自己的投稿/申诉状态，对被封禁的玩家提交举报、对自己的误封提交申诉、补充材料后再次提交。
-- **管理员侧**：审核投稿/申诉（通过封禁 / 拒绝并写明理由 / 限时赦免观察），一键增删网络黑名单，管理其他管理员账号，查看访问统计与玩家反馈。
 - **数据全局同步**：所有管理员在网页上的操作会实时下发到所有玩家客户端，无需更新模组版本。
-- **安全**：Steam OpenID 官方登录回跳校验，URL 不暴露 SteamID；主管理员走 GitHub Token 认证，其他管理员走 SteamID + 密钥认证，每日 3 次试错上限。
+- **安全**：Steam OpenID 官方登录回跳校验，URL 不暴露 SteamID。
 
 ## 功能
 
@@ -25,13 +24,11 @@
 
 Summit Watch 完整面板（Ctrl+0 打开）已完整汉化：
 
-![SummitWatch 完整面板汉化](https://raw.githubusercontent.com/linling000I/SummitWatchCN/main/full-panel.png)
+![SummitWatch 完整面板汉化](https://raw.githubusercontent.com/linling000i/SummitWatchCN/main/full-panel.png)
 
 黑名单管理窗口（默认 F8 打开），已汉化并集成网络黑名单同步：
 
-![黑名单管理窗口](https://raw.githubusercontent.com/linling000I/SummitWatchCN/main/blacklist-window.png)
-
-网页管理台：[https://summitwatchcn.icu](https://summitwatchcn.icu)
+![黑名单管理窗口](https://raw.githubusercontent.com/linling000i/SummitWatchCN/main/blacklist-window.png)
 
 ## 安装
 
@@ -96,10 +93,6 @@ BepInEx/config/summitwatch-netcache.json         # 网络黑名单缓存（自�
 
 - BepInExPack_PEAK `5.4.75301`
 - SummitWatch `0.1.3`（可选）
-
-## 更新日志
-
-见 [CHANGELOG.md](https://github.com/linling000I/SummitWatchCN/blob/main/CHANGELOG.md)。
 
 ## 致谢
 
