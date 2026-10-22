@@ -1,10 +1,9 @@
 {
   "name": "SummitWatchCN",
-  "version_number": "1.0.0",
+  "version_number": "1.0.5",
   "website_url": "https://github.com/linling000I/SummitWatchCN",
-  "description": "SummitWatch 中文汉化与黑名单附属：面板/资料/提示全中文；按玩家名称与SteamID记录黑名单，进房自动踢出或断开/本地屏蔽。",
+  "description": "SummitWatch 0.1.4 汉化 + 黑名单 + 主机端反炸房：拦截非主机的强制结束本局/击杀 RPC 保护主机，自动踢出拉黑；与 SummitWatch 兼容不冲突（装了 SW 优先用其 shield）。",
   "dependencies": [
-    "BepInEx-BepInExPack_PEAK-5.4.75301",
-    "JavaMods-SummitWatch-0.1.3"
+    "BepInEx-BepInExPack_PEAK-5.4.75301"
   ]
 }
