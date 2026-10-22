@@ -92,8 +92,8 @@ BepInEx/config/summitwatch-netcache.json         # 网络黑名单缓存（自�
 ## 前置
 
 - BepInExPack_PEAK `5.4.75301`
-- SummitWatch `0.1.3`（可选）
+- SummitWatch （可选）
 
 ## 致谢
 
-- 感谢测试人员：**咸鱼**
+- 感谢测试人员：**youshen、妧妧、咸鱼、m1saki**
