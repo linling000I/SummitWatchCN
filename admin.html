@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SummitWatchCN 网络黑名单</title>
+<title>网络黑名单 / Network Blacklist</title>
 <style>
   :root{--bg:#0f1419;--card:#1a2129;--line:#2a3440;--fg:#e6edf3;--mut:#8b98a5;--acc:#4493f8;--bad:#f85149;--ok:#3fb950;--warn:#d29922;}
   *{box-sizing:border-box}
@@ -36,74 +36,110 @@
   summary{cursor:pointer;color:var(--mut);font-size:12px}
   .reason{margin:2px 0;padding-left:10px;border-left:2px solid var(--line)}
   .item{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
+  .intro p{line-height:1.6;margin:6px 0}
+  .intro code{font-size:12px}
 </style>
 </head>
 <body>
 <header>
-  <h1>⛰️ SummitWatchCN 网络黑名单</h1>
+  <h1>⛰️ <span data-i18n="appTitle">网络黑名单</span> <span class="mut" data-i18n="appSubtitle">/ Network Blacklist</span></h1>
   <span id="status">加载中…</span>
   <span class="mut" id="visitStat" style="margin-left:12px"></span>
   <span class="right row">
-    <button id="btnGh" class="gh">主管理员 GitHub 登录</button>
-    <button id="btnSteam">用 Steam 识别身份</button>
-    <button onclick="load()">刷新</button>
+    <select id="langSel" onchange="setLang(this.value)" style="padding:4px 8px">
+      <option value="auto">自动 / Auto</option>
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+    <button id="btnGh" class="gh" data-i18n="btnAdminLogin">主管理员 GitHub 登录</button>
+    <button id="btnSteam" data-i18n="btnSteamIdentify">用 Steam 识别身份</button>
+    <button onclick="load()" data-i18n="btnRefresh">刷新</button>
   </span>
 </header>
 <main>
 
+  <!-- 项目介绍 / 开发者 API -->
+  <div class="card intro">
+    <h2 data-i18n="introTitle">关于本项目</h2>
+    <p data-i18n="introP1">
+      网络黑名单（Network Blacklist）是 PEAK 游戏的跨玩家共享作弊封禁名单。玩家用 Steam 登录即可举报作弊者、对误封提交申诉；管理员审核后，所有装了对应模组的客户端会自动同步并踢出被封禁玩家。
+    </p>
+    <p data-i18n="introP2">
+      本名单对其他反作弊 / 工具模组开放只读接口：任何 BepInEx 模组都可以通过反射调用 <code>SummitWatchCN.API</code> 查询封禁状态、读取名单快照、触发同步，无需重复实现网络层。
+    </p>
+    <details>
+      <summary data-i18n="introApiSummary">开发者 API（其他反作弊模组可调用）</summary>
+      <pre style="white-space:pre-wrap;font-size:12px;color:var(--mut);margin:8px 0">
+// 反射获取 API 类型
+var asm = AppDomain.CurrentDomain.GetAssemblies()
+    .FirstOrDefault(a => a.GetName().Name == "SummitWatchCN");
+var api = asm?.GetType("SummitWatchCN.API");
+
+// 常用方法
+api.GetMethod("IsBannedAnywhere").Invoke(null, new object[]{ steamId, playerName });
+api.GetMethod("IsNetworkBanned").Invoke(null, new object[]{ steamId });
+api.GetMethod("GetNetworkEntries").Invoke(null, null);   // 网络黑名单快照
+api.GetMethod("GetLocalEntries").Invoke(null, null);       // 本地黑名单快照
+api.GetMethod("RefreshNetworkNow").Invoke(null, null);     // 手动触发同步
+api.GetProperty("IsReady").GetValue(null);                 // 名单是否就绪
+api.GetProperty("HasPeakSentinel").GetValue(null);          // 是否检测到 PeakSentinel
+      </pre>
+    </details>
+  </div>
+
   <!-- 公开名单置顶 -->
   <div class="card">
     <div class="row">
-      <b>封禁名单（公开只读）</b>
+      <b data-i18n="publicListTitle">封禁名单（公开只读）</b>
       <span class="right row" id="addRow" style="display:none">
         <input id="nId" placeholder="SteamID64" style="width:170px">
-        <input id="nName" placeholder="名称" style="width:110px">
-        <input id="nReason" placeholder="原因" style="width:160px">
-        <button class="primary" onclick="addEntry()">+ 添加封禁</button>
+        <input id="nName" data-i18n-ph="phName" placeholder="名称" style="width:110px">
+        <input id="nReason" data-i18n-ph="phReason" placeholder="原因" style="width:160px">
+        <button class="primary" onclick="addEntry()" data-i18n="btnAddBan">+ 添加封禁</button>
       </span>
     </div>
     <table>
-      <thead><tr><th>SteamID</th><th>名称</th><th>理由（叠加）</th><th>加入日期</th><th>状态</th><th class="opcol">操作</th></tr></thead>
+      <thead><tr><th data-i18n="colSteamId">SteamID</th><th data-i18n="colName">名称</th><th data-i18n="colReason">理由（叠加）</th><th data-i18n="colDate">加入日期</th><th data-i18n="colStatus">状态</th><th class="opcol" data-i18n="colOp">操作</th></tr></thead>
       <tbody id="entriesBody"></tbody>
     </table>
   </div>
 
   <div class="card">
-    <b>限时赦免观察区（公开只读）</b>
-    <div class="mut">观察期内暂不自动踢出，再犯只计数。</div>
+    <b data-i18n="pardonTitle">限时赦免观察区（公开只读）</b>
+    <div class="mut" data-i18n="pardonHint">观察期内暂不自动踢出，再犯只计数。</div>
     <table>
-      <thead><tr><th>SteamID</th><th>名称</th><th>到期日</th><th>已再犯次数</th><th class="opcol">操作</th></tr></thead>
+      <thead><tr><th data-i18n="colSteamId">SteamID</th><th data-i18n="colName">名称</th><th data-i18n="colUntil">到期日</th><th data-i18n="colStrikes">已再犯次数</th><th class="opcol" data-i18n="colOp">操作</th></tr></thead>
       <tbody id="pardonsBody"></tbody>
     </table>
   </div>
 
   <div class="card">
-    <h2>📋 我的投稿/申诉状态</h2>
-    <div class="mut">仅显示你本人 SteamID 提交的内容。被拒绝后可补充材料重新提交。</div>
-    <div id="myItems" class="mut" style="margin-top:8px">登录 Steam 后显示</div>
+    <h2 data-i18n="myItemsTitle">📋 我的投稿/申诉状态</h2>
+    <div class="mut" data-i18n="myItemsHint">仅显示你本人 SteamID 提交的内容。被拒绝后可补充材料重新提交。</div>
+    <div id="myItems" class="mut" style="margin-top:8px" data-i18n="loginSteamToShow">登录 Steam 后显示</div>
   </div>
 
   <div class="card">
-    <h2>📨 我要举报（投稿）</h2>
-    <div class="mut">先点右上角「用 Steam 识别身份」自动登记你的 SteamID；再填写被举报人和理由。相同 SteamID 多次举报会自动叠加。</div>
+    <h2 data-i18n="reportTitle">📨 我要举报（投稿）</h2>
+    <div class="mut" data-i18n="reportHint">先点右上角「用 Steam 识别身份」自动登记你的 SteamID；再填写被举报人和理由。相同 SteamID 多次举报会自动叠加。</div>
     <div id="whoBox" class="mut" style="margin-top:6px"></div>
     <div style="margin-top:8px">
-      <input id="sId" placeholder="被举报人 SteamID64" style="width:200px">
-      <input id="sName" placeholder="被举报人游戏名称" style="width:140px">
+      <input id="sId" data-i18n-ph="phReporterSteam" placeholder="被举报人 SteamID64" style="width:200px">
+      <input id="sName" data-i18n-ph="phReporterName" placeholder="被举报人游戏名称" style="width:140px">
     </div>
-    <textarea id="sReason" placeholder="举报理由（作弊行为、时间、证据链接等）" style="width:100%;margin-top:8px;height:60px"></textarea>
+    <textarea id="sReason" data-i18n-ph="phReportReason" placeholder="举报理由（作弊行为、时间、证据链接等）" style="width:100%;margin-top:8px;height:60px"></textarea>
     <div class="row" style="margin-top:8px">
-      <button class="primary" onclick="openSubmit()">提交举报</button>
+      <button class="primary" onclick="openSubmit()" data-i18n="btnSubmitReport">提交举报</button>
     </div>
   </div>
 
   <div class="card">
-    <h2>⚖️ 误封申诉</h2>
-    <div class="mut">点右上角「用 Steam 识别身份」自动读取你的 SteamID，填写申诉理由即可。</div>
+    <h2 data-i18n="appealTitle">⚖️ 误封申诉</h2>
+    <div class="mut" data-i18n="appealHint">点右上角「用 Steam 识别身份」自动读取你的 SteamID，填写申诉理由即可。</div>
     <div id="whoBox2" class="mut" style="margin-top:6px"></div>
-    <textarea id="aReason" placeholder="申诉理由（说明为什么不是作弊）" style="width:100%;margin-top:8px;height:60px"></textarea>
+    <textarea id="aReason" data-i18n-ph="phAppealReason" placeholder="申诉理由（说明为什么不是作弊）" style="width:100%;margin-top:8px;height:60px"></textarea>
     <div class="row" style="margin-top:8px">
-      <button class="primary" onclick="openAppeal()">提交申诉</button>
+      <button class="primary" onclick="openAppeal()" data-i18n="btnSubmitAppeal">提交申诉</button>
     </div>
   </div>
 
@@ -136,13 +172,84 @@
 </main>
 
 <script>
+// ===== 多语言：自动识别浏览器语言，可手动切换 =====
+const I18N = {
+  zh: {
+    appTitle:"网络黑名单", appSubtitle:"/ Network Blacklist",
+    btnAdminLogin:"主管理员 GitHub 登录", btnSteamIdentify:"用 Steam 识别身份", btnRefresh:"刷新",
+    introTitle:"关于本项目",
+    introP1:"网络黑名单（Network Blacklist）是 PEAK 游戏的跨玩家共享作弊封禁名单。玩家用 Steam 登录即可举报作弊者、对误封提交申诉；管理员审核后，所有装了对应模组的客户端会自动同步并踢出被封禁玩家。",
+    introP2:"本名单对其他反作弊 / 工具模组开放只读接口：任何 BepInEx 模组都可以通过反射调用 SummitWatchCN.API 查询封禁状态、读取名单快照、触发同步，无需重复实现网络层。",
+    introApiSummary:"开发者 API（其他反作弊模组可调用）",
+    publicListTitle:"封禁名单（公开只读）",
+    phName:"名称", phReason:"原因", btnAddBan:"+ 添加封禁",
+    colSteamId:"SteamID", colName:"名称", colReason:"理由（叠加）", colDate:"加入日期", colStatus:"状态", colOp:"操作",
+    pardonTitle:"限时赦免观察区（公开只读）", pardonHint:"观察期内暂不自动踢出，再犯只计数。",
+    colUntil:"到期日", colStrikes:"已再犯次数",
+    myItemsTitle:"📋 我的投稿/申诉状态", myItemsHint:"仅显示你本人 SteamID 提交的内容。被拒绝后可补充材料重新提交。", loginSteamToShow:"登录 Steam 后显示",
+    reportTitle:"📨 我要举报（投稿）", reportHint:"先点右上角「用 Steam 识别身份」自动登记你的 SteamID；再填写被举报人和理由。相同 SteamID 多次举报会自动叠加。",
+    phReporterSteam:"被举报人 SteamID64", phReporterName:"被举报人游戏名称", phReportReason:"举报理由（作弊行为、时间、证据链接等）",
+    btnSubmitReport:"提交举报",
+    appealTitle:"⚖️ 误封申诉", appealHint:"点右上角「用 Steam 识别身份」自动读取你的 SteamID，填写申诉理由即可。",
+    phAppealReason:"申诉理由（说明为什么不是作弊）", btnSubmitAppeal:"提交申诉",
+    loading:"加载中…", notLoggedIn:"未识别身份",
+  },
+  en: {
+    appTitle:"Network Blacklist", appSubtitle:"/ 网络黑名单",
+    btnAdminLogin:"Main Admin (GitHub)", btnSteamIdentify:"Sign in with Steam", btnRefresh:"Refresh",
+    introTitle:"About",
+    introP1:"Network Blacklist is a cross-player shared ban list for PEAK. Players sign in with Steam to report cheaters or appeal wrongful bans; after an admin reviews, every client with the mod installed automatically syncs and kicks banned players.",
+    introP2:"The list exposes a read-only API to other anti-cheat / utility mods: any BepInEx mod can reflect-call SummitWatchCN.API to query ban status, read list snapshots, or trigger a refresh — no need to reimplement networking.",
+    introApiSummary:"Developer API (callable by other anti-cheat mods)",
+    publicListTitle:"Ban list (public, read-only)",
+    phName:"Name", phReason:"Reason", btnAddBan:"+ Add ban",
+    colSteamId:"SteamID", colName:"Name", colReason:"Reasons (stacked)", colDate:"Added", colStatus:"Status", colOp:"Actions",
+    pardonTitle:"Pardon / probation (public, read-only)", pardonHint:"During probation, players are not auto-kicked; repeat offenses only count.",
+    colUntil:"Until", colStrikes:"Strikes",
+    myItemsTitle:"📋 My reports / appeals", myItemsHint:"Shows only submissions under your own SteamID. You can add follow-up material after a rejection.", loginSteamToShow:"Sign in with Steam to view",
+    reportTitle:"📨 Report a player", reportHint:"Click \"Sign in with Steam\" to register your SteamID, then fill in the reported player and reason. Multiple reports from the same SteamID stack automatically.",
+    phReporterSteam:"Reported player SteamID64", phReporterName:"Reported player in-game name", phReportReason:"Reason (cheating behavior, time, evidence links, etc.)",
+    btnSubmitReport:"Submit report",
+    appealTitle:"⚖️ Appeal a ban", appealHint:"Click \"Sign in with Steam\" to read your SteamID, then write your appeal.",
+    phAppealReason:"Appeal reason (why this is not cheating)", btnSubmitAppeal:"Submit appeal",
+    loading:"Loading…", notLoggedIn:"Not signed in",
+  }
+};
+let LANG = "zh";
+function detectLang(){
+  const saved = localStorage.getItem("swcn_lang");
+  if(saved && I18N[saved]) return saved;
+  const nav = (navigator.language || "zh").toLowerCase();
+  if(nav.startsWith("zh")) return "zh";
+  return "en";
+}
+function setLang(l){
+  if(l==="auto"){ l = detectLang(); }
+  LANG = l;
+  localStorage.setItem("swcn_lang", l);
+  applyLang();
+}
+function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.zh[k] || k; }
+function applyLang(){
+  document.documentElement.lang = LANG==="zh" ? "zh-CN" : "en";
+  document.title = LANG==="zh" ? "网络黑名单 / Network Blacklist" : "Network Blacklist / 网络黑名单";
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n");
+    if(I18N[LANG] && I18N[LANG][k]!=null) el.textContent = I18N[LANG][k];
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+    const k = el.getAttribute("data-i18n-ph");
+    if(I18N[LANG] && I18N[LANG][k]!=null) el.placeholder = I18N[LANG][k];
+  });
+}
+setLang(detectLang());
+
 const API = "https://api.summitwatchcn.icu";
 const WEB3FORMS_KEY = "9d692dbe-d2ee-423a-ae0b-c5f391895955";
 const WORKER = API + "/queue";
 
 let data = {admins:[], entries:[], pardons:[]};
 let kvQueue = [];
-// SteamID 只从 sessionStorage 读，且必须先经 Steam 登录回跳才会写入
 let steamId = sessionStorage.getItem("swcn_sid_v2") || "";
 let myName = localStorage.getItem("swcn_myname") || "";
 let adminSecret = "";
@@ -153,7 +260,6 @@ function displayWho(){
   return steamId ? steamId + (myName ? "（" + myName + "）" : "") : "";
 }
 
-// 每日试错计数（localStorage 持久化）
 function todayKey(){ return "swcn_attempts_" + new Date().toISOString().slice(0,10); }
 function getAttempts(){
   try { return parseInt(localStorage.getItem(todayKey()) || "0"); } catch(e){ return 0; }
@@ -441,7 +547,6 @@ async function load(){
     if(!data.entries) data.entries=[];
     if(!data.pardons) data.pardons=[];
     if(!data.admins) data.admins=[];
-    // Steam admin: 刷新页面自动重新要求密钥
     if(!githubToken && steamId && data.admins.includes(steamId)){
       await tryLoginSteam();
     }
@@ -461,51 +566,6 @@ async function trackVisit(){
     const v = await r.json();
     document.getElementById("visitStat").textContent = "今日 " + v.today + " 次 · 总 " + v.total + " 次";
   }catch(e){}
-}
-
-async function trackVisit(){
-  try{
-    const r = await fetch(API + "/visit");
-    const v = await r.json();
-    document.getElementById("visitStat").textContent = "今日 " + v.today + " 次 · 总 " + v.total + " 次";
-  }catch(e){}
-}
-
-async function submitFeedback(){
-  if(!steamId){ alert("请先点右上角「用 Steam 识别身份」"); return; }
-  const text = document.getElementById("fbText").value.trim();
-  if(!text){ alert("反馈内容不能为空"); return; }
-  try{
-    const r = await fetch(API + "/feedback", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({steamId, name: myName||"", text})});
-    if(r.ok){ document.getElementById("fbText").value=""; alert("已提交，感谢反馈！"); }
-    else alert("服务器连接失败，请稍后再试");
-  }catch(e){ alert("服务器连接失败，请稍后再试"); }
-}
-
-async function loadFeedback(){
-  try{
-    const r = await fetch(API + "/feedback?githubToken=" + encodeURIComponent(githubToken));
-    if(!r.ok) return;
-    const list = await r.json();
-    const el = document.getElementById("fbList");
-    if(!list.length){ el.innerHTML = '<div class="mut">暂无反馈</div>'; return; }
-    el.innerHTML = '<div class="row" style="margin:8px 0"><b>📬 收到的反馈（仅主管理员可见）</b></div>' + list.slice().reverse().map(f=>
-      `<div class="row" style="padding:6px 0;border-bottom:1px solid #333">
-        <div><code>${esc(f.steamId)}</code>${f.name?("（"+esc(f.name)+"）"):""} <span class="mut">· ${esc(f.at||"")}</span></div>
-        <div style="white-space:pre-wrap;margin:4px 0">${esc(f.text)}</div>
-        <button class="danger" style="padding:1px 8px;font-size:12px" onclick="delFeedback(${f.id})">删除</button>
-      </div>`).join("");
-  }catch(e){}
-}
-
-async function delFeedback(id){
-  if(!confirm("删除这条反馈？")) return;
-  try{
-    await fetch(API + "/feedback/delete", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({githubToken, id})});
-    loadFeedback();
-  }catch(e){ alert("删除失败"); }
 }
 
 function renderHistory(){
@@ -544,7 +604,7 @@ function mergeEntry(id, name, reason, source){
   if(!e.reasons) e.reasons = [];
   if(!e.history) e.history = [];
   if(name && !e.name) e.name = name;
-  if(reason) e.reasons.push(reason + (source?("（来自 "+source+")"):""));
+  if(reason) e.reasons.push(reason + (source?("（来自 "+source+"）"):""));
   e.reason = e.reasons.join("；");
   e.history.push({t: new Date().toISOString(), by: githubUser||steamId||"admin", act:"add", note: reason});
 }
@@ -562,7 +622,7 @@ function render(){
   eb.innerHTML = "";
   data.entries.forEach((e,i)=>{
     const pardoned = (data.pardons||[]).find(p=>p.id===e.id);
-    if(pardoned) return; // 观察中的条目不在封禁名单里显示
+    if(pardoned) return;
     const reasons = (e.reasons && e.reasons.length) ? e.reasons : (e.reason?[e.reason]:[]);
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><code>${esc(e.id)}</code></td><td>${esc(e.name||"")}</td>
@@ -601,19 +661,18 @@ function render(){
     span.className = "tag ok";
     span.style.cssText = "display:inline-flex;align-items:center;gap:4px";
     span.innerHTML = esc(a) + (nm ? "（" + esc(nm) + "）" : "");
-    // 管理员可改自己名称，主管理可改所有人
     const canEdit = (a===steamId) || githubToken;
     if(canEdit){
-      const eb = document.createElement("button");
-      eb.className = "ghost";
-      eb.style.cssText = "padding:0 6px;font-size:12px";
-      eb.textContent = "改";
-      eb.onclick = ()=>{
+      const eb2 = document.createElement("button");
+      eb2.className = "ghost";
+      eb2.style.cssText = "padding:0 6px;font-size:12px";
+      eb2.textContent = "改";
+      eb2.onclick = ()=>{
         const n = prompt("设置该管理员显示名称：", nm);
         if(n===null) return;
         setAdminName(a, n.trim());
       };
-      span.appendChild(eb);
+      span.appendChild(eb2);
     }
     if(githubToken){
       const btn = document.createElement("button");
@@ -654,9 +713,7 @@ async function setAdminName(a, name){
   if(!data.adminNames) data.adminNames = {};
   if(name) data.adminNames[a] = name;
   else delete data.adminNames[a];
-  try{
-    await saveData();
-  }catch(e){ alert("保存失败: " + e.message); }
+  try{ await saveData(); }catch(e){ alert("保存失败: " + e.message); }
 }
 
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -734,13 +791,11 @@ document.getElementById("btnGh").onclick = async ()=>{
     if(u.login !== "linling000I"){ alert("仅主管理员 linling000I 可用此登录"); return; }
     githubToken = t.trim();
     githubUser = u.login;
-    setStatus(); applyAdminVisibility(); render(); loadQueue(); loadFeedback();
+    setStatus(); applyAdminVisibility(); render(); loadQueue();
   }catch(e){ alert("登录失败: " + e.message); }
 };
 
 (async function(){
-  // Steam OpenID 回跳：直接从 openid.claimed_id 提取真实 steamid
-  // 该 URL 由 Steam 登录后生成并带签名，手动拼 URL 无法伪造
   const params = new URLSearchParams(location.search);
   const claimed = params.get("openid.claimed_id") || "";
   const m = claimed.match(/\/id\/(\d+)/);
