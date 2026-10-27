@@ -59,6 +59,7 @@
 </header>
 <main>
 
+  <!-- 项目介绍 / 开发者 API -->
   <div class="card intro">
     <h2 data-i18n="introTitle">关于本项目</h2>
     <p data-i18n="introP1">
@@ -70,33 +71,36 @@
     <details>
       <summary data-i18n="introApiSummary">开发者 API（其他反作弊模组可调用）</summary>
       <pre style="white-space:pre-wrap;font-size:12px;color:var(--mut);margin:8px 0">
+// 反射获取 API 类型
 var asm = AppDomain.CurrentDomain.GetAssemblies()
     .FirstOrDefault(a => a.GetName().Name == "SummitWatchCN");
 var api = asm?.GetType("SummitWatchCN.API");
 
+// 常用方法
 api.GetMethod("IsBannedAnywhere").Invoke(null, new object[]{ steamId, playerName });
 api.GetMethod("IsNetworkBanned").Invoke(null, new object[]{ steamId });
-api.GetMethod("GetNetworkEntries").Invoke(null, null);
-api.GetMethod("GetLocalEntries").Invoke(null, null);
-api.GetMethod("RefreshNetworkNow").Invoke(null, null);
-api.GetProperty("IsReady").GetValue(null);
-api.GetProperty("HasPeakSentinel").GetValue(null);
+api.GetMethod("GetNetworkEntries").Invoke(null, null);   // 网络黑名单快照
+api.GetMethod("GetLocalEntries").Invoke(null, null);       // 本地黑名单快照
+api.GetMethod("RefreshNetworkNow").Invoke(null, null);     // 手动触发同步
+api.GetProperty("IsReady").GetValue(null);                 // 名单是否就绪
+api.GetProperty("HasPeakSentinel").GetValue(null);          // 是否检测到 PeakSentinel
       </pre>
     </details>
   </div>
 
+  <!-- 公开名单置顶 -->
   <div class="card">
     <div class="row">
       <b data-i18n="publicListTitle">封禁名单（公开只读）</b>
       <span class="right row" id="addRow" style="display:none">
-        <input id="nId" placeholder="SteamID64" style="width:170px">
+        <input id="nId" placeholder="ID（自动识别平台）" style="width:190px">
         <input id="nName" data-i18n-ph="phName" placeholder="名称" style="width:110px">
         <input id="nReason" data-i18n-ph="phReason" placeholder="原因" style="width:160px">
         <button class="primary" onclick="addEntry()" data-i18n="btnAddBan">+ 添加封禁</button>
       </span>
     </div>
     <table>
-      <thead><tr><th data-i18n="colSteamId">SteamID</th><th data-i18n="colName">名称</th><th data-i18n="colReason">理由（叠加）</th><th data-i18n="colDate">加入日期</th><th data-i18n="colStatus">状态</th><th class="opcol" data-i18n="colOp">操作</th></tr></thead>
+      <thead><tr><th data-i18n="colPlatform">平台</th><th data-i18n="colSteamId">ID</th><th data-i18n="colName">名称</th><th data-i18n="colReason">理由（叠加）</th><th data-i18n="colDate">加入日期</th><th data-i18n="colStatus">状态</th><th class="opcol" data-i18n="colOp">操作</th></tr></thead>
       <tbody id="entriesBody"></tbody>
     </table>
   </div>
@@ -105,23 +109,23 @@ api.GetProperty("HasPeakSentinel").GetValue(null);
     <b data-i18n="pardonTitle">限时赦免观察区（公开只读）</b>
     <div class="mut" data-i18n="pardonHint">观察期内暂不自动踢出，再犯只计数。</div>
     <table>
-      <thead><tr><th data-i18n="colSteamId">SteamID</th><th data-i18n="colName">名称</th><th data-i18n="colUntil">到期日</th><th data-i18n="colStrikes">已再犯次数</th><th class="opcol" data-i18n="colOp">操作</th></tr></thead>
+      <thead><tr><th data-i18n="colSteamId">ID</th><th data-i18n="colName">名称</th><th data-i18n="colUntil">到期日</th><th data-i18n="colStrikes">已再犯次数</th><th class="opcol" data-i18n="colOp">操作</th></tr></thead>
       <tbody id="pardonsBody"></tbody>
     </table>
   </div>
 
   <div class="card">
     <h2 data-i18n="myItemsTitle">📋 我的投稿/申诉状态</h2>
-    <div class="mut" data-i18n="myItemsHint">仅显示你本人 SteamID 提交的内容。被拒绝后可补充材料重新提交。</div>
-    <div id="myItems" class="mut" style="margin-top:8px" data-i18n="loginSteamToShow">登录 Steam 后显示</div>
+    <div class="mut" data-i18n="myItemsHint">仅显示你本人 ID 提交的内容。被拒绝后可补充材料重新提交。</div>
+    <div id="myItems" class="mut" style="margin-top:8px" data-i18n="loginSteamToShow">登录后显示</div>
   </div>
 
   <div class="card">
     <h2 data-i18n="reportTitle">📨 我要举报（投稿）</h2>
-    <div class="mut" data-i18n="reportHint">先点右上角「用 Steam 识别身份」自动登记你的 SteamID；再填写被举报人和理由。相同 SteamID 多次举报会自动叠加。</div>
+    <div class="mut" data-i18n="reportHint">先点右上角识别身份，再填写被举报人和理由。相同 ID 多次举报会自动叠加。</div>
     <div id="whoBox" class="mut" style="margin-top:6px"></div>
     <div style="margin-top:8px">
-      <input id="sId" data-i18n-ph="phReporterSteam" placeholder="被举报人 SteamID64" style="width:200px">
+      <input id="sId" data-i18n-ph="phReporterSteam" placeholder="被举报人 ID（SteamID64 或 platform:id）" style="width:220px">
       <input id="sName" data-i18n-ph="phReporterName" placeholder="被举报人游戏名称" style="width:140px">
     </div>
     <textarea id="sReason" data-i18n-ph="phReportReason" placeholder="举报理由（作弊行为、时间、证据链接等）" style="width:100%;margin-top:8px;height:60px"></textarea>
@@ -132,7 +136,7 @@ api.GetProperty("HasPeakSentinel").GetValue(null);
 
   <div class="card">
     <h2 data-i18n="appealTitle">⚖️ 误封申诉</h2>
-    <div class="mut" data-i18n="appealHint">点右上角「用 Steam 识别身份」自动读取你的 SteamID，填写申诉理由即可。</div>
+    <div class="mut" data-i18n="appealHint">点右上角识别身份后，填写申诉理由即可。</div>
     <div id="whoBox2" class="mut" style="margin-top:6px"></div>
     <textarea id="aReason" data-i18n-ph="phAppealReason" placeholder="申诉理由（说明为什么不是作弊）" style="width:100%;margin-top:8px;height:60px"></textarea>
     <div class="row" style="margin-top:8px">
@@ -140,6 +144,7 @@ api.GetProperty("HasPeakSentinel").GetValue(null);
     </div>
   </div>
 
+  <!-- 管理员区 -->
   <div class="card" id="submissionsCard" style="display:none">
     <div class="row"><b>📥 待处理投稿</b><span class="mut right" id="queueCount"></span></div>
     <div id="submissions" class="mut">加载中…</div>
@@ -156,11 +161,11 @@ api.GetProperty("HasPeakSentinel").GetValue(null);
   </div>
 
   <div class="card" id="adminsCard" style="display:none">
-    <b>管理员（admins，SteamID64）</b>
+    <b>管理员（admins）</b>
     <div class="mut" id="adminsHint">仅主管理员（GitHub 登录）可增删管理员</div>
     <div class="row" id="adminsBody" style="margin-top:8px"></div>
     <div class="row" id="addAdminRow" style="margin-top:8px;display:none">
-      <input id="newAdmin" placeholder="新管理员 SteamID64" style="width:200px">
+      <input id="newAdmin" placeholder="新管理员 ID（SteamID64 或 platform:id）" style="width:220px">
       <button class="primary" onclick="addAdmin()">+ 添加管理员</button>
     </div>
   </div>
@@ -168,6 +173,7 @@ api.GetProperty("HasPeakSentinel").GetValue(null);
 </main>
 
 <script>
+// ===== 多语言：自动识别浏览器语言，可手动切换 =====
 const I18N = {
   zh: {
     appTitle:"网络黑名单", appSubtitle:"/ Network Blacklist",
@@ -178,14 +184,14 @@ const I18N = {
     introApiSummary:"开发者 API（其他反作弊模组可调用）",
     publicListTitle:"封禁名单（公开只读）",
     phName:"名称", phReason:"原因", btnAddBan:"+ 添加封禁",
-    colSteamId:"SteamID", colName:"名称", colReason:"理由（叠加）", colDate:"加入日期", colStatus:"状态", colOp:"操作",
+    colSteamId:"ID", colPlatform:"平台", colName:"名称", colReason:"理由（叠加）", colDate:"加入日期", colStatus:"状态", colOp:"操作",
     pardonTitle:"限时赦免观察区（公开只读）", pardonHint:"观察期内暂不自动踢出，再犯只计数。",
     colUntil:"到期日", colStrikes:"已再犯次数",
-    myItemsTitle:"📋 我的投稿/申诉状态", myItemsHint:"仅显示你本人 SteamID 提交的内容。被拒绝后可补充材料重新提交。", loginSteamToShow:"登录 Steam 后显示",
-    reportTitle:"📨 我要举报（投稿）", reportHint:"先点右上角「用 Steam 识别身份」自动登记你的 SteamID；再填写被举报人和理由。相同 SteamID 多次举报会自动叠加。",
-    phReporterSteam:"被举报人 SteamID64", phReporterName:"被举报人游戏名称", phReportReason:"举报理由（作弊行为、时间、证据链接等）",
+    myItemsTitle:"📋 我的投稿/申诉状态", myItemsHint:"仅显示你本人 ID 提交的内容。被拒绝后可补充材料重新提交。", loginSteamToShow:"登录后显示",
+    reportTitle:"📨 我要举报（投稿）", reportHint:"先点右上角识别身份，再填写被举报人和理由。相同 ID 多次举报会自动叠加。",
+    phReporterSteam:"被举报人 ID（SteamID64 或 platform:id）", phReporterName:"被举报人游戏名称", phReportReason:"举报理由（作弊行为、时间、证据链接等）",
     btnSubmitReport:"提交举报",
-    appealTitle:"⚖️ 误封申诉", appealHint:"点右上角「用 Steam 识别身份」自动读取你的 SteamID，填写申诉理由即可。",
+    appealTitle:"⚖️ 误封申诉", appealHint:"点右上角识别身份后，填写申诉理由即可。",
     phAppealReason:"申诉理由（说明为什么不是作弊）", btnSubmitAppeal:"提交申诉",
     loading:"加载中…", notLoggedIn:"未识别身份",
   },
@@ -198,14 +204,14 @@ const I18N = {
     introApiSummary:"Developer API (callable by other anti-cheat mods)",
     publicListTitle:"Ban list (public, read-only)",
     phName:"Name", phReason:"Reason", btnAddBan:"+ Add ban",
-    colSteamId:"SteamID", colName:"Name", colReason:"Reasons (stacked)", colDate:"Added", colStatus:"Status", colOp:"Actions",
+    colSteamId:"ID", colPlatform:"Platform", colName:"Name", colReason:"Reasons (stacked)", colDate:"Added", colStatus:"Status", colOp:"Actions",
     pardonTitle:"Pardon / probation (public, read-only)", pardonHint:"During probation, players are not auto-kicked; repeat offenses only count.",
     colUntil:"Until", colStrikes:"Strikes",
-    myItemsTitle:"📋 My reports / appeals", myItemsHint:"Shows only submissions under your own SteamID. You can add follow-up material after a rejection.", loginSteamToShow:"Sign in with Steam to view",
-    reportTitle:"📨 Report a player", reportHint:"Click \"Sign in with Steam\" to register your SteamID, then fill in the reported player and reason. Multiple reports from the same SteamID stack automatically.",
-    phReporterSteam:"Reported player SteamID64", phReporterName:"Reported player in-game name", phReportReason:"Reason (cheating behavior, time, evidence links, etc.)",
+    myItemsTitle:"📋 My reports / appeals", myItemsHint:"Shows only submissions under your own ID. You can add follow-up material after a rejection.", loginSteamToShow:"Sign in to view",
+    reportTitle:"📨 Report a player", reportHint:"Identify yourself via the top-right buttons, then fill in the reported player and reason. Reports from the same ID stack automatically.",
+    phReporterSteam:"Reported player ID (SteamID64 or platform:id)", phReporterName:"Reported player in-game name", phReportReason:"Reason (cheating behavior, time, evidence links, etc.)",
     btnSubmitReport:"Submit report",
-    appealTitle:"⚖️ Appeal a ban", appealHint:"Click \"Sign in with Steam\" to read your SteamID, then write your appeal.",
+    appealTitle:"⚖️ Appeal a ban", appealHint:"Identify yourself via the top-right buttons, then write your appeal.",
     phAppealReason:"Appeal reason (why this is not cheating)", btnSubmitAppeal:"Submit appeal",
     loading:"Loading…", notLoggedIn:"Not signed in",
   }
@@ -224,6 +230,7 @@ function setLang(l){
   localStorage.setItem("swcn_lang", l);
   applyLang();
 }
+function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.zh[k] || k; }
 function applyLang(){
   document.documentElement.lang = LANG==="zh" ? "zh-CN" : "en";
   document.title = LANG==="zh" ? "网络黑名单 / Network Blacklist" : "Network Blacklist / 网络黑名单";
@@ -249,7 +256,10 @@ let adminSecret = "";
 let githubToken = "";
 let githubUser = "";
 
-function displayWho(){ return steamId ? steamId + (myName ? "（" + myName + "）" : "") : ""; }
+function displayWho(){
+  return steamId ? steamId + (myName ? "（" + myName + "）" : "") : "";
+}
+
 function todayKey(){ return "swcn_attempts_" + new Date().toISOString().slice(0,10); }
 function getAttempts(){ try { return parseInt(localStorage.getItem(todayKey()) || "0"); } catch(e){ return 0; } }
 function bumpAttempts(){ const k = todayKey(); localStorage.setItem(k, String(getAttempts()+1)); }
@@ -310,7 +320,7 @@ function openSubmit(){
   const id = document.getElementById("sId").value.trim();
   const name = document.getElementById("sName").value.trim();
   const reason = document.getElementById("sReason").value.trim();
-  if(!/^(\d{17}|[a-z][a-z0-9_]{1,20}:[A-Za-z0-9._-]{2,64})$/.test(id)){ alert("被举报人 ID 应为 SteamID64（17 位数字）或 平台:ID 格式（如 epic:xxx）"); return; }
+  if(!/^(\d{17}|[a-z][a-z0-9_]{1,20}:[A-Za-z0-9._-]{2,64})$/.test(id)){ alert("被举报人 ID 应为 SteamID64（17 位数字）或 platform:id 格式（如 epic:xxx）"); return; }
   if(!reason){ alert("举报理由必填"); return; }
   postForm({ subject: "[SWCN 举报] "+(name||id), from_name:"玩家举报",
     "被举报人SteamID64":id, "被举报人名称":name||"(未填)",
@@ -449,60 +459,101 @@ function renderHistory(){
     const title=it.kind==="submit"?"举报: "+(it["被举报人名称"]||it["被举报人SteamID64"]):"申诉: "+(it["申诉人SteamID64"]||"");
     const reasonText=it.kind==="submit"?it["理由"]:it["申诉理由"];
     const d=document.createElement("div"); d.className="item";
-    d.innerHTML=`<div class="row"><b>${esc(title)}</b> ${statusTag(st)}<span class="mut right">${esc(it.at||"")}</span></div>
+    d.innerHTML = `<div class="row"><b>${esc(title)}</b> ${statusTag(st)}<span class="mut right">${esc(it.at||"")}</span></div>
       <div style="white-space:pre-wrap;margin:6px 0">${esc(reasonText||"")}</div>
-      ${it.adminReply?`<div class="reason mut">管理员回复: ${esc(it.adminReply)}${it.operator?("（操作人: "+esc(it.operator)+"）"):""}${it.opAt?(" · "+esc(it.opAt)):""}</div>`:""}
+      ${it.adminReply?`<div class="reason mut">管理员回复: ${esc(it.adminReply)}${it.operator?"（操作人: "+esc(it.operator)+"）":""}${it.opAt?(" · "+esc(it.opAt)):""}</div>`:""}
       ${isAuthed()&&githubToken?`<div class="row" style="margin-top:6px"><button class="danger" onclick="deleteHistory(${i})">删除该记录</button></div>`:""}`;
     el.appendChild(d);
   });
 }
 async function deleteHistory(i){ if(!confirm("删除？")) return; kvQueue.splice(i,1); await kvSet(kvQueue); renderQueue(); renderHistory(); }
-function mergeEntry(id,name,reason,source){
-  let e=data.entries.find(x=>x.id===id);
-  if(!e){ e={id,name:name||"",reasons:[],added:new Date().toISOString().slice(0,10),history:[]}; data.entries.push(e);}
-  if(!e.reasons) e.reasons=[];
-  if(!e.history) e.history=[];
-  if(name&&!e.name) e.name=name;
-  if(reason) e.reasons.push(reason+(source?("（来自 "+source+"）"):""));
-  e.reason=e.reasons.join("；");
-  e.history.push({t:new Date().toISOString(),by:githubUser||steamId||"admin",act:"add",note:reason});
+function mergeEntry(id, name, reason, source){
+  let e = data.entries.find(x=>x.id===id);
+  const plat = detectPlatform(id);
+  if(!e){
+    e = {id, name: name||"", platform: plat, reasons:[], added: new Date().toISOString().slice(0,10), history:[]};
+    data.entries.push(e);
+  }
+  if(!e.reasons) e.reasons = [];
+  if(!e.history) e.history = [];
+  if(!e.platform || e.platform==="unknown") e.platform = plat;
+  if(name && !e.name) e.name = name;
+  if(reason) e.reasons.push(reason + (source?("（来自 "+source+")"):""));
+  e.reason = e.reasons.join("；");
+  e.history.push({t: new Date().toISOString(), by: githubUser||steamId||"admin", act:"add", note: reason});
 }
-function removeEntryById(id){ const i=data.entries.findIndex(x=>x.id===id); if(i>=0){ data.entries[i].history.push({t:new Date().toISOString(),by:githubUser||steamId||"admin",act:"remove",note:"申诉成立"}); data.entries.splice(i,1);} }
+function detectPlatform(id){
+  if(!id) return "unknown";
+  id = String(id).trim();
+  const i = id.indexOf(":");
+  if(i>0){
+    const p = id.slice(0,i).toLowerCase();
+    if(p==="steam") return "steam";
+    if(p==="epic"||p==="eos"||p==="epicgames") return "epic";
+    if(p==="xbox"||p==="ms"||p==="microsoft") return "xbox";
+    if(p==="ps"||p==="psn") return "playstation";
+    return p;
+  }
+  if(/^\d{17}$/.test(id)) return "steam";
+  return "unknown";
+}
+function platformLabel(p){
+  switch(p){
+    case "steam": return "Steam";
+    case "epic": return "Epic";
+    case "xbox": return "Xbox";
+    case "playstation": return "PSN";
+    default: return p||"?";
+  }
+}
+function removeEntryById(id){
+  const i = data.entries.findIndex(x=>x.id===id);
+  if(i>=0){ data.entries[i].history.push({t:new Date().toISOString(), by:githubUser||steamId||"admin", act:"remove", note:"申诉成立"}); data.entries.splice(i,1);}
+}
 function render(){
-  const eb=document.getElementById("entriesBody"); eb.innerHTML="";
+  const eb = document.getElementById("entriesBody");
+  eb.innerHTML = "";
   data.entries.forEach((e,i)=>{
-    if((data.pardons||[]).find(p=>p.id===e.id)) return;
-    const reasons=(e.reasons&&e.reasons.length)?e.reasons:(e.reason?[e.reason]:[]);
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td><code>${esc(e.id)}</code></td><td>${esc(e.name||"")}</td>
+    const pardoned = (data.pardons||[]).find(p=>p.id===e.id);
+    if(pardoned) return;
+    const reasons = (e.reasons && e.reasons.length) ? e.reasons : (e.reason?[e.reason]:[]);
+    const plat = e.platform || detectPlatform(e.id);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><span class="tag mut">${esc(platformLabel(plat))}</span></td><td><code>${esc(e.id)}</code></td><td>${esc(e.name||"")}</td>
       <td>${reasons.map(r=>`<div class="reason">${esc(r)}</div>`).join("")}</td>
       <td>${esc(e.added||"")}</td>
-      <td><span class="tag bad">已封禁</span></td>
-      <td class="opcol" style="display:none"><button onclick="pardon(${i})">限时赦免</button><button class="danger" onclick="delEntry(${i})">删除</button><details><summary>历史</summary>${(e.history||[]).map(h=>`<div class="mut">${esc(h.t)} · ${esc(h.by)} · ${esc(h.act)} · ${esc(h.note||"")}</div>`).join("")}</details></td>`;
+      <td>${'<span class="tag bad">已封禁</span>'}</td>
+      <td class="opcol" style="display:none">
+        <button onclick="pardon(${i})">限时赦免</button>
+        <button class="danger" onclick="delEntry(${i})">删除</button>
+        <details><summary>历史</summary>${(e.history||[]).map(h=>`<div class="mut">${esc(h.t)} · ${esc(h.by)} · ${esc(h.act)} · ${esc(h.note||"")}</div>`).join("")}</details>
+      </td>`;
     eb.appendChild(tr);
   });
-  const pb=document.getElementById("pardonsBody"); pb.innerHTML="";
+  const pb = document.getElementById("pardonsBody");
+  pb.innerHTML = "";
   data.pardons.forEach((p,i)=>{
-    const e=(data.entries||[]).find(x=>x.id===p.id);
-    const nm=p.name||(e&&e.name)||"";
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td><code>${esc(p.id)}</code></td><td>${esc(nm)}</td><td>${esc(p.until||"")}</td><td>${p.strikes||0}</td>
+    const e = (data.entries||[]).find(x=>x.id===p.id);
+    const nm = p.name || (e && e.name) || "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><code>${esc(p.id)}</code></td><td>${esc(nm)}</td><td>${esc(p.until||"")}</td><td>${p.strikes||0}</td>
       <td class="opcol" style="display:none"><input type="date" value="${esc(p.until||"")}" id="pd${i}"><button onclick="updatePardon(${i})">保存到期</button><button onclick="strike(${i})">+1 再犯</button><button class="danger" onclick="delPardon(${i})">移除</button></td>`;
     pb.appendChild(tr);
   });
-  const ab=document.getElementById("adminsBody"); ab.innerHTML="";
+  const ab = document.getElementById("adminsBody");
+  ab.innerHTML = "";
   data.admins.forEach(a=>{
-    const e=(data.entries||[]).find(x=>x.id===a);
-    const nm=(data.adminNames&&data.adminNames[a])||(e&&e.name)||"";
-    const span=document.createElement("span"); span.className="tag ok";
+    const e = (data.entries||[]).find(x=>x.id===a);
+    const nm = (data.adminNames && data.adminNames[a]) || (e && e.name) || "";
+    const span = document.createElement("span"); span.className="tag ok";
     span.style.cssText="display:inline-flex;align-items:center;gap:4px";
-    span.innerHTML=esc(a)+(nm?("（"+esc(nm)+"）"):"");
-    const canEdit=(a===steamId)||githubToken;
-    if(canEdit){ const b=document.createElement("button"); b.style.cssText="padding:0 6px;font-size:12px"; b.textContent="改"; b.onclick=()=>{ const n=prompt("显示名称：",nm); if(n!==null) setAdminName(a,n.trim());}; span.appendChild(b);}
-    if(githubToken){ const btn=document.createElement("button"); btn.className="danger"; btn.style.cssText="margin-left:6px;padding:1px 8px"; btn.textContent="×"; btn.onclick=()=>removeAdmin(a); span.appendChild(btn);}
+    span.innerHTML = esc(a) + (nm ? "（" + esc(nm) + "）" : "");
+    const canEdit = (a===steamId) || githubToken;
+    if(canEdit){ const b = document.createElement("button"); b.style.cssText="padding:0 6px;font-size:12px"; b.textContent="改"; b.onclick=()=>{ const n=prompt("显示名称：",nm); if(n!==null) setAdminName(a,n.trim());}; span.appendChild(b);}
+    if(githubToken){ const btn = document.createElement("button"); btn.className="danger"; btn.style.cssText="margin-left:6px;padding:1px 8px"; btn.textContent="×"; btn.onclick=()=>removeAdmin(a); span.appendChild(btn);}
     ab.appendChild(span);
   });
-  document.getElementById("addAdminRow").style.display=githubToken?"flex":"none";
+  document.getElementById("addAdminRow").style.display = githubToken ? "flex" : "none";
   applyAdminVisibility();
 }
 async function adminOp(action,sid){
@@ -510,14 +561,20 @@ async function adminOp(action,sid){
   try{ const r=await fetch(API+"/admins",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({githubToken,action,sid})}); if(!r.ok) throw new Error(r.status); const d=await r.json(); data.admins=d.admins; render(); }
   catch(e){ alert("操作失败: "+e.message); }
 }
-function addAdmin(){ const sid=document.getElementById("newAdmin").value.trim(); if(!sid){ alert("填 ID"); return; } adminOp("add",sid).then(()=>{ document.getElementById("newAdmin").value="";}); }
-function removeAdmin(sid){ if(!confirm("移除管理员 "+sid+"？")) return; adminOp("remove",sid); }
+function addAdmin(){
+  const sid = document.getElementById("newAdmin").value.trim();
+  if(!sid){ alert("填 ID"); return; }
+  if(!/^\d{17}$/.test(sid) && !/^[a-z][a-z0-9_]+:[^\s]+$/i.test(sid)){ alert("ID 格式：17 位 SteamID64 或 platform:id"); return; }
+  adminOp("add",sid).then(()=>{ document.getElementById("newAdmin").value="";});
+}
+function removeAdmin(sid){ if(!confirm("移除管理员 "+sid+"？")) return; adminOp("remove", sid); }
 async function setAdminName(a,name){ if(!data.adminNames) data.adminNames={}; if(name) data.adminNames[a]=name; else delete data.adminNames[a]; try{ await saveData();}catch(e){ alert("保存失败");} }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function addEntry(){
   if(!isAuthed()){ alert("需要管理员权限"); return; }
-  const id=document.getElementById("nId").value.trim();
+  const id = document.getElementById("nId").value.trim();
   if(!id){ alert("填 ID"); return; }
+  if(!/^\d{17}$/.test(id) && !/^[a-z][a-z0-9_]+:[^\s]+$/i.test(id)){ alert("ID 格式：17 位 SteamID64，或 platform:id（如 epic:xxx / xbox:xxx）"); return; }
   mergeEntry(id, document.getElementById("nName").value.trim(), document.getElementById("nReason").value.trim(), "manual");
   document.getElementById("nId").value="";document.getElementById("nName").value="";document.getElementById("nReason").value="";
   saveData();
