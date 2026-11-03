@@ -36,7 +36,7 @@ Summit Watch 完整面板（Ctrl+0 打开）已完整汉化：
 
 Peak Sentinel 反作弊面板（1.1.6「作弊」标签页）已完整汉化，含通用作弊检测开关、拦截按钮与中文会话日志：
 
-![Peak Sentinel 作弊面板汉化](https://raw.githubusercontent.com/linling000i/SummitWatchCN/main/peaksentinel-panel.jpg)
+![Peak Sentinel 作弊面板汉化](https://aka.doubaocdn.com/s/QNvLszq9iV)
 
 ## 安装
 
