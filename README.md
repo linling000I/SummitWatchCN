@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://aka.doubaocdn.com/s/PmGoHPGgyr" alt="网络黑名单 / Network Blacklist" width="220" />
+</div>
+
 # SummitWatch 中文汉化与黑名单附属（SummitWatchCN）
 
 为 **[SummitWatch](https://thunderstore.io/c/peak/p/JavaMods/SummitWatch/)** 制作的中文附属模组，提供完整汉化与跨玩家共享的网络黑名单。
